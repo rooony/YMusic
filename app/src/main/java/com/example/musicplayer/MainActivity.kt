@@ -1,17 +1,32 @@
 package com.example.musicplayer
 
+import android.Manifest
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.content.ServiceConnection
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
+import android.os.Bundle
+import android.os.IBinder
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.viewModels
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -19,7 +34,10 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -27,9 +45,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.musicplayer.data.Song
+import com.example.musicplayer.service.MusicService
+import com.example.musicplayer.ui.MusicViewModel
+import kotlinx.coroutines.delay
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun YMusicScreen(
     songs: List<Song>,
@@ -87,6 +112,8 @@ fun YMusicScreen(
     var selectedPlaylistName by remember { mutableStateOf<String?>(null) }
     var showSettings by remember { mutableStateOf(false) }
     var localVolume by remember { mutableStateOf(volume) }
+
+    val playingHighlight = MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.22f else 0.12f)
 
     val listToShow = when (selectedTab) {
         "favorite" -> songs.filter { favoriteIds.contains(it.id) }
@@ -149,7 +176,7 @@ fun YMusicScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "YMusic",
+                text = "Y³Music",
                 style = MaterialTheme.typography.headlineSmall
             )
             Row {
@@ -164,6 +191,13 @@ fun YMusicScreen(
                 }
             }
         }
+
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+        ) {
 
         if (showSettings) {
             Column(
@@ -237,11 +271,12 @@ fun YMusicScreen(
             }
         }
 
-        Row(
+        FlowRow(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Button(onClick = { selectedTab = "all" }) { Text(if (language == LanguageManager.LANG_ZH) "全部" else "All") }
             Button(onClick = { selectedTab = "favorite" }) { Text(if (language == LanguageManager.LANG_ZH) "收藏" else "Favorites") }
@@ -249,7 +284,7 @@ fun YMusicScreen(
             Button(onClick = { selectedTab = "album"; selectedAlbum = null }) { Text(if (language == LanguageManager.LANG_ZH) "专辑" else "Albums") }
             Button(onClick = { selectedTab = "artist"; selectedArtist = null }) { Text(if (language == LanguageManager.LANG_ZH) "歌手" else "Artists") }
             Button(onClick = { selectedTab = "queue" }) { Text(if (language == LanguageManager.LANG_ZH) "列表" else "Queue") }
-            Button(onClick = { selectedTab = "playlist" }) { Text(if (language == LanguageManager.LANG_ZH) "歌单" else "Playlists") }
+//            Button(onClick = { selectedTab = "playlist" }) { Text(if (language == LanguageManager.LANG_ZH) "歌单" else "Playlists") }
         }
 
         Row(
@@ -328,41 +363,41 @@ fun YMusicScreen(
             }
         }
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            OutlinedTextField(
-                value = playlistNameInput,
-                onValueChange = { playlistNameInput = it },
-                modifier = Modifier.weight(1f),
-                placeholder = { Text(if (language == LanguageManager.LANG_ZH) "新歌单名称" else "New playlist name") }
-            )
-            Button(
-                onClick = {
-                    if (playlistNameInput.isNotBlank()) {
-                        onCreatePlaylist(playlistNameInput)
-                        playlistNameInput = ""
-                    }
-                }
-            ) {
-                Text(if (language == LanguageManager.LANG_ZH) "创建" else "Create")
-            }
-        }
+//        Row(
+//            modifier = Modifier
+//                .fillMaxWidth()
+//                .padding(top = 8.dp),
+//            verticalAlignment = Alignment.CenterVertically
+//        ) {
+//            OutlinedTextField(
+//                value = playlistNameInput,
+//                onValueChange = { playlistNameInput = it },
+//                modifier = Modifier.weight(1f),
+//                placeholder = { Text(if (language == LanguageManager.LANG_ZH) "新歌单名称" else "New playlist name") }
+//            )
+//            Button(
+//                onClick = {
+//                    if (playlistNameInput.isNotBlank()) {
+//                        onCreatePlaylist(playlistNameInput)
+//                        playlistNameInput = ""
+//                    }
+//                }
+//            ) {
+//                Text(if (language == LanguageManager.LANG_ZH) "创建" else "Create")
+//            }
+//        }
 
         if (excludedFolders.isNotEmpty()) {
             Text(
                 text = if (language == LanguageManager.LANG_ZH) "已排除目录" else "Excluded folders",
                 modifier = Modifier.padding(top = 12.dp, bottom = 4.dp)
             )
-            LazyColumn(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 8.dp)
             ) {
-                itemsIndexed(excludedFolders) { _, folder ->
+                excludedFolders.forEachIndexed { _, folder ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -379,12 +414,17 @@ fun YMusicScreen(
             }
         }
 
+        Text(
+            text = if (language == LanguageManager.LANG_ZH) "歌曲" else "Songs",
+            modifier = Modifier.padding(top = 12.dp, bottom = 4.dp)
+        )
+
         if (selectedTab == "playlist") {
             if (playlists.isEmpty()) {
                 Text(if (language == LanguageManager.LANG_ZH) "暂无歌单" else "No playlists yet")
             } else {
-                LazyColumn {
-                    itemsIndexed(playlists) { _, playlist ->
+                Column {
+                    playlists.forEachIndexed { _, playlist ->
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -405,8 +445,8 @@ fun YMusicScreen(
         }
 
         if (selectedTab == "album" && selectedAlbum == null) {
-            LazyColumn {
-                itemsIndexed(albums) { _, album ->
+            Column {
+                albums.forEachIndexed { _, album ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -427,8 +467,8 @@ fun YMusicScreen(
         }
 
         if (selectedTab == "artist" && selectedArtist == null) {
-            LazyColumn {
-                itemsIndexed(artists) { _, artist ->
+            Column {
+                artists.forEachIndexed { _, artist ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -446,18 +486,27 @@ fun YMusicScreen(
         }
 
         if (selectedTab == "queue") {
-            LazyColumn {
-                itemsIndexed(queue) { index, song ->
+            Column {
+                queue.forEachIndexed { index, song ->
+                    val isPlaying = song.id == currentSong?.id
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 8.dp)
+                            .background(
+                                color = if (isPlaying) playingHighlight else Color.Transparent,
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            .padding(horizontal = 8.dp, vertical = 8.dp)
                             .clickable { onSongClick(song) },
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column {
-                            Text(song.title)
+                            Text(
+                                text = song.title,
+                                color = if (isPlaying) MaterialTheme.colorScheme.primary else Color.Unspecified,
+                                fontWeight = if (isPlaying) FontWeight.Bold else null
+                            )
                             Text(song.artist)
                         }
                         Row {
@@ -472,8 +521,8 @@ fun YMusicScreen(
             return
         }
 
-        LazyColumn {
-            itemsIndexed(listToShow) { _, song ->
+        Column {
+            listToShow.forEachIndexed { _, song ->
                 if (song.id == -1L) {
                     Row(
                         modifier = Modifier
@@ -492,13 +541,18 @@ fun YMusicScreen(
                         }
                         Text(if (language == LanguageManager.LANG_ZH) "查看" else "Open")
                     }
-                    return@itemsIndexed
+                    return@forEachIndexed
                 }
 
+                val isPlaying = song.id == currentSong?.id
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 8.dp),
+                        .background(
+                            color = if (isPlaying) playingHighlight else Color.Transparent,
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                        .padding(horizontal = 8.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -509,7 +563,11 @@ fun YMusicScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column {
-                            Text(song.title)
+                            Text(
+                                text = song.title,
+                                color = if (isPlaying) MaterialTheme.colorScheme.primary else Color.Unspecified,
+                                fontWeight = if (isPlaying) FontWeight.Bold else null
+                            )
                             Text(song.artist)
                         }
                     }
@@ -536,6 +594,7 @@ fun YMusicScreen(
                 }
             }
         }
+        }
     }
 }
 
@@ -544,4 +603,220 @@ private fun formatDuration(durationMs: Long): String {
     val minutes = totalSeconds / 60L
     val seconds = totalSeconds % 60L
     return String.format("%02d:%02d", minutes, seconds)
+}
+
+class MainActivity : ComponentActivity() {
+
+    private val viewModel: MusicViewModel by viewModels()
+
+    private var musicService: MusicService? = null
+    private var isBound = false
+    private var pendingServiceAction: ((MusicService) -> Unit)? = null
+
+    private val requiredAudioPermission: String
+        get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            Manifest.permission.READ_MEDIA_AUDIO
+        } else {
+            Manifest.permission.READ_EXTERNAL_STORAGE
+        }
+
+    private val permissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) viewModel.refreshSongs()
+        }
+
+    private val serviceConnection = object : ServiceConnection {
+        override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
+            val binder = service as? MusicService.LocalBinder ?: return
+            val connected = binder.getService()
+            musicService = connected
+            connected.setPlayMode(viewModel.playMode.value)
+            pendingServiceAction?.invoke(connected)
+            pendingServiceAction = null
+        }
+
+        override fun onServiceDisconnected(name: ComponentName?) {
+            musicService = null
+        }
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        LanguageManager.apply(this)
+
+        if (hasAudioPermission()) {
+            viewModel.refreshSongs()
+        } else {
+            permissionLauncher.launch(requiredAudioPermission)
+        }
+        viewModel.refreshFavorites()
+        viewModel.refreshRecent()
+
+        setContent {
+            val songs by viewModel.songs.collectAsStateWithLifecycle()
+            val albums by viewModel.albums.collectAsStateWithLifecycle()
+            val artists by viewModel.artists.collectAsStateWithLifecycle()
+            val currentSong by viewModel.currentSong.collectAsStateWithLifecycle()
+            val favoriteIds by viewModel.favoriteIds.collectAsStateWithLifecycle()
+            val recentSongs by viewModel.recentSongs.collectAsStateWithLifecycle()
+            val searchText by viewModel.searchText.collectAsStateWithLifecycle()
+            val excludedFolders by viewModel.excludedFolders.collectAsStateWithLifecycle()
+            val isDark by viewModel.isDark.collectAsStateWithLifecycle()
+            val queue by viewModel.queue.collectAsStateWithLifecycle()
+            val currentPositionMs by viewModel.currentPositionMs.collectAsStateWithLifecycle()
+            val durationMs by viewModel.durationMs.collectAsStateWithLifecycle()
+            val playMode by viewModel.playMode.collectAsStateWithLifecycle()
+            val playlists by viewModel.playlists.collectAsStateWithLifecycle()
+            val volume by viewModel.volume.collectAsStateWithLifecycle()
+            val autoPlay by viewModel.autoPlay.collectAsStateWithLifecycle()
+            val themeColor by viewModel.themeColor.collectAsStateWithLifecycle()
+            val language by viewModel.language.collectAsStateWithLifecycle()
+
+            val colorScheme = if (isDark) {
+                darkColorScheme(primary = Color(themeColor))
+            } else {
+                lightColorScheme(primary = Color(themeColor))
+            }
+
+            MaterialTheme(colorScheme = colorScheme) {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    YMusicScreen(
+                        songs = songs,
+                        albums = albums,
+                        artists = artists,
+                        currentSong = currentSong,
+                        favoriteIds = favoriteIds,
+                        recentSongs = recentSongs,
+                        searchText = searchText,
+                        excludedFolders = excludedFolders,
+                        isDark = isDark,
+                        queue = queue,
+                        currentPositionMs = currentPositionMs,
+                        durationMs = durationMs,
+                        playMode = playMode,
+                        playlists = playlists,
+                        volume = volume,
+                        autoPlay = autoPlay,
+                        themeColor = themeColor,
+                        language = language,
+                        onToggleTheme = { viewModel.toggleTheme() },
+                        onSetThemeColor = { viewModel.setThemeColor(it) },
+                        onSetVolume = {
+                            viewModel.setVolume(it)
+                            withService { service -> service.setVolume(it) }
+                        },
+                        onSetAutoPlay = { viewModel.setAutoPlay(it) },
+                        onSearchChange = { viewModel.setSearchText(it) },
+                        onScanClick = {
+                            if (hasAudioPermission()) {
+                                viewModel.refreshSongs()
+                            } else {
+                                permissionLauncher.launch(requiredAudioPermission)
+                            }
+                        },
+                        onAddExcludedFolder = { viewModel.addExcludedFolder(it) },
+                        onRemoveExcludedFolder = { viewModel.removeExcludedFolder(it) },
+                        onSongClick = { song -> playSong(song) },
+                        onToggleFavorite = { viewModel.toggleFavorite(it) },
+                        onAddToPlaylist = { name, song -> viewModel.addSongToPlaylist(name, song) },
+                        onPlayPauseClick = { withService { it.togglePlayPause() } },
+                        onNextClick = {
+                            withService { service ->
+                                service.playNext()
+                                val next = service.getCurrentSong()
+                                viewModel.setCurrentSong(next)
+                                next?.let { viewModel.markRecentPlay(it) }
+                            }
+                        },
+                        onPreviousClick = {
+                            withService { service ->
+                                service.playPrevious()
+                                val previous = service.getCurrentSong()
+                                viewModel.setCurrentSong(previous)
+                                previous?.let { viewModel.markRecentPlay(it) }
+                            }
+                        },
+                        onSeek = { position -> withService { it.seekTo(position) } },
+                        onCreatePlaylist = { name -> viewModel.createPlaylist(name, emptyList()) },
+                        onDeletePlaylist = { viewModel.deletePlaylist(it) },
+                        onSortQueue = { viewModel.sortQueueByTitle() },
+                        onRemoveFromQueue = { viewModel.removeSongFromQueue(it) },
+                        onReorderQueue = { from, to -> viewModel.reorderQueue(from, to) },
+                        onPlayModeChange = { mode ->
+                            viewModel.setPlayMode(mode)
+                            withService { it.setPlayMode(mode) }
+                        },
+                        onLanguageChange = { viewModel.setLanguage(it) }
+                    )
+                }
+            }
+
+            LaunchedEffect(Unit) {
+                while (true) {
+                    musicService?.let { service ->
+                        val position = service.getCurrentPositionMs().coerceAtLeast(0L)
+                        val duration = service.getDurationMs().coerceAtLeast(0L)
+                        viewModel.setProgress(position, duration)
+                        val playing = service.getCurrentSong()
+                        if (playing != null && playing.id != viewModel.currentSong.value?.id) {
+                            viewModel.setCurrentSong(playing)
+                        }
+                    }
+                    delay(500L)
+                }
+            }
+        }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        bindMusicService()
+    }
+
+    override fun onStop() {
+        if (isBound) {
+            unbindService(serviceConnection)
+            isBound = false
+        }
+        musicService = null
+        super.onStop()
+    }
+
+    private fun bindMusicService() {
+        if (isBound) return
+        val intent = Intent(this, MusicService::class.java)
+        ContextCompat.startForegroundService(this, intent)
+        isBound = bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
+    }
+
+    private fun hasAudioPermission(): Boolean =
+        ContextCompat.checkSelfPermission(
+            this,
+            requiredAudioPermission
+        ) == PackageManager.PERMISSION_GRANTED
+
+    private fun withService(action: (MusicService) -> Unit) {
+        val service = musicService
+        if (service != null) {
+            action(service)
+        } else {
+            pendingServiceAction = action
+            bindMusicService()
+        }
+    }
+
+    private fun playSong(song: Song) {
+        if (song.id < 0L) return
+        val list = viewModel.songs.value
+        val index = list.indexOfFirst { it.id == song.id }
+        if (index < 0) return
+
+        viewModel.setQueue(list)
+        viewModel.setCurrentSong(song)
+        viewModel.markRecentPlay(song)
+        withService { it.setQueue(list, index) }
+    }
 }

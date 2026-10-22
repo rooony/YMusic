@@ -127,12 +127,19 @@ class MusicService : Service() {
         if (queue.isNotEmpty() && index in queue.indices) {
             currentIndex = index
             val song = queue[index]
-            val item = MediaItem.fromUri(song.uri)
+            val metadata = MediaMetadata.Builder()
+                .setTitle(song.title)
+                .setArtist(song.artist)
+                .setAlbumTitle(song.album)
+                .build()
+            val item = MediaItem.Builder()
+                .setUri(song.uri)
+                .setMediaMetadata(metadata)
+                .build()
             player.setMediaItem(item)
             player.prepare()
             if (autoSeekMs > 0L) player.seekTo(autoSeekMs)
             player.play()
-            updateMediaMetadata(song)
             updateNotification()
         }
     }
@@ -218,15 +225,6 @@ class MusicService : Service() {
 
     fun getVolume(): Float = player.volume
 
-    private fun updateMediaMetadata(song: Song) {
-        val metadata = MediaMetadata.Builder()
-            .setTitle(song.title)
-            .setArtist(song.artist)
-            .setAlbumTitle(song.album)
-            .build()
-        mediaSession?.setMediaMetadata(metadata)
-    }
-
     private fun updateNotification() {
         val nm = getSystemService(NotificationManager::class.java)
         nm.notify(1, createNotification())
@@ -289,7 +287,7 @@ class MusicService : Service() {
         return NotificationCompat.Builder(this, "music_channel")
             .setContentTitle(song?.title ?: "YMusic")
             .setContentText(song?.artist ?: "Ready")
-            .setSmallIcon(android.R.drawable.stat_notify_music_no_artist)
+            .setSmallIcon(android.R.drawable.ic_media_play)
             .setContentIntent(openIntent)
             .addAction(android.R.drawable.ic_media_previous, "Previous", previousPendingIntent)
             .addAction(
