@@ -21,19 +21,24 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
@@ -46,6 +51,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -111,6 +118,7 @@ fun YMusicScreen(
     var playlistNameInput by remember { mutableStateOf("") }
     var selectedPlaylistName by remember { mutableStateOf<String?>(null) }
     var showSettings by remember { mutableStateOf(false) }
+    var showAboutDialog by remember { mutableStateOf(false) }
     var localVolume by remember { mutableStateOf(volume) }
 
     val playingHighlight = MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.22f else 0.12f)
@@ -177,7 +185,8 @@ fun YMusicScreen(
         ) {
             Text(
                 text = "Y³Music",
-                style = MaterialTheme.typography.headlineSmall
+                style = MaterialTheme.typography.headlineSmall,
+                modifier = Modifier.clickable { showAboutDialog = true }
             )
             Row {
                 Button(onClick = onToggleTheme) {
@@ -190,6 +199,36 @@ fun YMusicScreen(
                     Text(if (language == LanguageManager.LANG_ZH) "设置" else "Settings")
                 }
             }
+        }
+
+        if (showAboutDialog) {
+            AlertDialog(
+                onDismissRequest = { showAboutDialog = false },
+                text = {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(80.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Y³Music by R_Y\r\n\r\nPower by Android & Github & Deepseek",
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                },
+                confirmButton = {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        TextButton(onClick = { showAboutDialog = false }) {
+                            Text(if (language == LanguageManager.LANG_ZH) "确定" else "OK")
+                        }
+                    }
+                }
+            )
         }
 
         Column(
@@ -402,11 +441,18 @@ fun YMusicScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 4.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.Top
                     ) {
-                        Text(folder)
-                        Button(onClick = { onRemoveExcludedFolder(folder) }) {
+                        Text(
+                            text = folder,
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(end = 8.dp)
+                        )
+                        Button(
+                            onClick = { onRemoveExcludedFolder(folder) },
+                            modifier = Modifier.align(Alignment.Top)
+                        ) {
                             Text(if (language == LanguageManager.LANG_ZH) "删除" else "Remove")
                         }
                     }
@@ -415,7 +461,7 @@ fun YMusicScreen(
         }
 
         Text(
-            text = if (language == LanguageManager.LANG_ZH) "歌曲" else "Songs",
+            text = if (language == LanguageManager.LANG_ZH) "歌曲 (${listToShow.size})" else "Songs (${listToShow.size})",
             modifier = Modifier.padding(top = 12.dp, bottom = 4.dp)
         )
 
@@ -569,6 +615,13 @@ fun YMusicScreen(
                                 fontWeight = if (isPlaying) FontWeight.Bold else null
                             )
                             Text(song.artist)
+                            Text(
+                                text = song.path,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (isDark) Color(0xFFBDBDBD) else Color(0xFF555555),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
                         }
                     }
 
@@ -587,7 +640,11 @@ fun YMusicScreen(
                             }
                         }
 
-                        Button(onClick = { onToggleFavorite(song) }) {
+                        Button(
+                            onClick = { onToggleFavorite(song) },
+                            modifier = Modifier.width(48.dp),
+                            contentPadding = PaddingValues(0.dp)
+                        ) {
                             Text(if (favoriteIds.contains(song.id)) "♥" else "♡")
                         }
                     }
