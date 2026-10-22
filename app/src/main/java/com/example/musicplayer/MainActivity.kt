@@ -52,7 +52,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -119,6 +118,7 @@ fun YMusicScreen(
     var selectedPlaylistName by remember { mutableStateOf<String?>(null) }
     var showSettings by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
+    var folderToRemove by remember { mutableStateOf<String?>(null) }
     var localVolume by remember { mutableStateOf(volume) }
 
     val playingHighlight = MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.22f else 0.12f)
@@ -226,6 +226,40 @@ fun YMusicScreen(
                         TextButton(onClick = { showAboutDialog = false }) {
                             Text(if (language == LanguageManager.LANG_ZH) "确定" else "OK")
                         }
+                    }
+                }
+            )
+        }
+
+        val targetFolder = folderToRemove
+        if (targetFolder != null) {
+            AlertDialog(
+                onDismissRequest = { folderToRemove = null },
+                title = {
+                    Text(if (language == LanguageManager.LANG_ZH) "删除已排除目录" else "Remove excluded folder")
+                },
+                text = {
+                    Text(
+                        if (language == LanguageManager.LANG_ZH) {
+                            "确定要删除以下已排除目录吗？\n\n$targetFolder"
+                        } else {
+                            "Remove this excluded folder?\n\n$targetFolder"
+                        }
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            onRemoveExcludedFolder(targetFolder)
+                            folderToRemove = null
+                        }
+                    ) {
+                        Text(if (language == LanguageManager.LANG_ZH) "删除" else "Remove")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { folderToRemove = null }) {
+                        Text(if (language == LanguageManager.LANG_ZH) "取消" else "Cancel")
                     }
                 }
             )
@@ -450,7 +484,7 @@ fun YMusicScreen(
                                 .padding(end = 8.dp)
                         )
                         Button(
-                            onClick = { onRemoveExcludedFolder(folder) },
+                            onClick = { folderToRemove = folder },
                             modifier = Modifier.align(Alignment.Top)
                         ) {
                             Text(if (language == LanguageManager.LANG_ZH) "删除" else "Remove")
@@ -618,9 +652,7 @@ fun YMusicScreen(
                             Text(
                                 text = song.path,
                                 style = MaterialTheme.typography.bodySmall,
-                                color = if (isDark) Color(0xFFBDBDBD) else Color(0xFF555555),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                                color = if (isDark) Color(0xFFBDBDBD) else Color(0xFF555555)
                             )
                         }
                     }
