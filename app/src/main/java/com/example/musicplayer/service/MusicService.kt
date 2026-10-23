@@ -6,16 +6,22 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
+import android.media.MediaMetadataRetriever
+import android.net.Uri
 import android.os.Build
 import android.os.Binder
 import android.os.IBinder
+import androidx.annotation.OptIn
 import androidx.core.app.NotificationCompat
+import androidx.media3.common.ForwardingPlayer
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import com.example.musicplayer.LocalStateManager
+import com.example.musicplayer.MainActivity
 import com.example.musicplayer.PlayMode
 import com.example.musicplayer.SettingsManager
 import com.example.musicplayer.data.Song
@@ -26,6 +32,7 @@ class MusicService : Service() {
     private val binder = LocalBinder()
 
     private lateinit var player: ExoPlayer
+    private lateinit var sessionPlayer: ForwardingPlayer
     private var mediaSession: MediaSession? = null
     private lateinit var localStateManager: LocalStateManager
     private lateinit var settingsManager: SettingsManager
@@ -38,6 +45,7 @@ class MusicService : Service() {
         fun getService(): MusicService = this@MusicService
     }
 
+    @OptIn(UnstableApi::class)
     override fun onCreate() {
         super.onCreate()
         localStateManager = LocalStateManager(this)
@@ -48,7 +56,69 @@ class MusicService : Service() {
 
         player = ExoPlayer.Builder(this).build()
         player.volume = settingsManager.getVolume()
-        mediaSession = MediaSession.Builder(this, player).build()
+
+        // ExoPlayer only ever holds the current MediaItem (the app keeps its own queue),
+        // so the timeline has no next/previous item. ForwardingPlayer exposes those
+        // commands to MediaSession and routes them to the app's queue instead.
+        sessionPlayer = object : ForwardingPlayer(player) {
+            override fun getAvailableCommands(): Player.Commands {
+                val builder = super.getAvailableCommands().buildUpon()
+                if (queue.isNotEmpty()) {
+                    builder.addAll(
+                        Player.COMMAND_SEEK_TO_NEXT,
+                        Player.COMMAND_SEEK_TO_PREVIOUS,
+                        Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM,
+                        Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM
+                    )
+                }
+                return builder.build()
+            }
+
+            override fun isCommandAvailable(command: Int): Boolean = when (command) {
+                Player.COMMAND_SEEK_TO_NEXT,
+                Player.COMMAND_SEEK_TO_PREVIOUS,
+                Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM,
+                Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM -> queue.isNotEmpty()
+                else -> super.isCommandAvailable(command)
+            }
+
+            override fun seekToNext() {
+                playNext()
+            }
+
+            override fun seekToPrevious() {
+                playPrevious()
+            }
+
+            override fun seekToNextMediaItem() {
+                playNext()
+            }
+
+            override fun seekToPreviousMediaItem() {
+                playPrevious()
+            }
+        }
+
+        mediaSession = MediaSession.Builder(this, sessionPlayer)
+            .setSessionActivity(createSessionActivityPendingIntent())
+            .setCallback(object : MediaSession.Callback {
+                // media3 dispatches transport commands (play/pause/seek) from
+                // controllers directly to the Player, and next/previous to the
+                // sessionPlayer above. The callback only decides which commands
+                // connected controllers are allowed to send.
+                override fun onConnect(
+                    session: MediaSession,
+                    controller: MediaSession.ControllerInfo
+                ): MediaSession.ConnectionResult =
+                    // Grant all player commands; MediaSession intersects them with the
+                    // commands actually exposed by [sessionPlayer].
+                    MediaSession.ConnectionResult.AcceptedResultBuilder(session)
+                        .setAvailablePlayerCommands(
+                            Player.Commands.Builder().addAllCommands().build()
+                        )
+                        .build()
+            })
+            .build()
 
         player.addListener(object : Player.Listener {
             override fun onPlaybackStateChanged(playbackState: Int) {
@@ -57,6 +127,11 @@ class MusicService : Service() {
                         playNext()
                     }
                 }
+                updateNotification()
+            }
+
+            override fun onIsPlayingChanged(isPlaying: Boolean) {
+                updateNotification()
             }
         })
 
@@ -127,12 +202,9 @@ class MusicService : Service() {
         if (queue.isNotEmpty() && index in queue.indices) {
             currentIndex = index
             val song = queue[index]
-            val metadata = MediaMetadata.Builder()
-                .setTitle(song.title)
-                .setArtist(song.artist)
-                .setAlbumTitle(song.album)
-                .build()
+            val metadata = buildMediaMetadata(song)
             val item = MediaItem.Builder()
+                .setMediaId(song.id.toString())
                 .setUri(song.uri)
                 .setMediaMetadata(metadata)
                 .build()
@@ -224,6 +296,56 @@ class MusicService : Service() {
     }
 
     fun getVolume(): Float = player.volume
+
+    /**
+     * Metadata mirrored to the system through MediaSession: title, artist, album,
+     * duration and album artwork.
+     */
+    private fun buildMediaMetadata(song: Song): MediaMetadata {
+        val builder = MediaMetadata.Builder()
+            .setTitle(song.title)
+            .setArtist(song.artist)
+            .setAlbumTitle(song.album)
+            .setIsBrowsable(false)
+            .setIsPlayable(true)
+            .setMediaType(MediaMetadata.MEDIA_TYPE_MUSIC)
+
+        val artworkUri = song.albumArtUri
+        if (!artworkUri.isNullOrBlank()) {
+            builder.setArtworkUri(Uri.parse(artworkUri))
+        } else {
+            loadEmbeddedArtwork(song.uri)?.let { data ->
+                builder.setArtworkData(data, MediaMetadata.PICTURE_TYPE_FRONT_COVER)
+            }
+        }
+
+        return builder.build()
+    }
+
+    private fun loadEmbeddedArtwork(uriString: String): ByteArray? {
+        if (uriString.isBlank()) return null
+        val retriever = MediaMetadataRetriever()
+        return try {
+            retriever.setDataSource(this, Uri.parse(uriString))
+            retriever.embeddedPicture
+        } catch (_: Exception) {
+            null
+        } finally {
+            retriever.release()
+        }
+    }
+
+    private fun createSessionActivityPendingIntent(): PendingIntent {
+        val intent = Intent(this, MainActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        }
+        return PendingIntent.getActivity(
+            this,
+            0,
+            intent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+    }
 
     private fun updateNotification() {
         val nm = getSystemService(NotificationManager::class.java)
