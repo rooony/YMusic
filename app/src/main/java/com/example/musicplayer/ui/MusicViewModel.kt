@@ -80,6 +80,9 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private val _autoPlay = MutableStateFlow(settingsManager.getAutoPlay())
     val autoPlay: StateFlow<Boolean> = _autoPlay.asStateFlow()
 
+    private val _showAlbumArt = MutableStateFlow(settingsManager.getShowAlbumArt())
+    val showAlbumArt: StateFlow<Boolean> = _showAlbumArt.asStateFlow()
+
     private val _themeColor = MutableStateFlow(settingsManager.getThemeColor())
     val themeColor: StateFlow<Int> = _themeColor.asStateFlow()
 
@@ -129,6 +132,11 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     fun setAutoPlay(value: Boolean) {
         _autoPlay.value = value
         settingsManager.saveAutoPlay(value)
+    }
+
+    fun setShowAlbumArt(value: Boolean) {
+        _showAlbumArt.value = value
+        settingsManager.saveShowAlbumArt(value)
     }
 
     fun setPlayMode(mode: PlayMode) {

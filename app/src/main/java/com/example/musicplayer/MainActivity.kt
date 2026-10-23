@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -14,6 +15,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -23,10 +25,12 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -45,13 +49,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -79,12 +90,14 @@ fun YMusicScreen(
     playlists: List<Playlist>,
     volume: Float,
     autoPlay: Boolean,
+    showAlbumArt: Boolean,
     themeColor: Int,
     language: String,
     onToggleTheme: () -> Unit,
     onSetThemeColor: (Int) -> Unit,
     onSetVolume: (Float) -> Unit,
     onSetAutoPlay: (Boolean) -> Unit,
+    onSetShowAlbumArt: (Boolean) -> Unit,
     onSearchChange: (String) -> Unit,
     onScanClick: () -> Unit,
     onAddExcludedFolder: (String) -> Unit,
@@ -290,6 +303,17 @@ fun YMusicScreen(
                 Text(if (language == LanguageManager.LANG_ZH) "自动播放" else "Auto play")
                 Button(onClick = { onSetAutoPlay(!autoPlay) }) {
                     Text(if (autoPlay) "关闭自动播放" else "开启自动播放")
+                }
+
+                Text(if (language == LanguageManager.LANG_ZH) "专辑图片" else "Album art")
+                Button(onClick = { onSetShowAlbumArt(!showAlbumArt) }) {
+                    Text(
+                        if (showAlbumArt) {
+                            if (language == LanguageManager.LANG_ZH) "隐藏专辑图片" else "Hide album art"
+                        } else {
+                            if (language == LanguageManager.LANG_ZH) "显示专辑图片" else "Show album art"
+                        }
+                    )
                 }
 
                 Text(if (language == LanguageManager.LANG_ZH) "主题色" else "Theme color")
@@ -642,6 +666,10 @@ fun YMusicScreen(
                             .clickable { onSongClick(song) },
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        if (showAlbumArt) {
+                            SongAlbumArt(song = song, size = 48.dp)
+                            Spacer(modifier = Modifier.width(10.dp))
+                        }
                         Column {
                             Text(
                                 text = song.title,
@@ -683,6 +711,44 @@ fun YMusicScreen(
                 }
             }
         }
+        }
+    }
+}
+
+@Composable
+private fun SongAlbumArt(song: Song, size: Dp = 48.dp) {
+    val context = LocalContext.current
+    val targetSizePx = with(LocalDensity.current) { size.roundToPx() }
+    val artwork by produceState<Bitmap?>(
+        initialValue = null,
+        song.id,
+        song.uri,
+        song.albumArtUri
+    ) {
+        value = AlbumArtLoader.load(context, song, targetSizePx)
+    }
+
+    Box(
+        modifier = Modifier
+            .size(size)
+            .clip(RoundedCornerShape(6.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant),
+        contentAlignment = Alignment.Center
+    ) {
+        val bitmap = artwork
+        if (bitmap != null) {
+            Image(
+                bitmap = bitmap.asImageBitmap(),
+                contentDescription = song.album,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        } else {
+            Text(
+                text = "♪",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -760,6 +826,7 @@ class MainActivity : ComponentActivity() {
             val autoPlay by viewModel.autoPlay.collectAsStateWithLifecycle()
             val themeColor by viewModel.themeColor.collectAsStateWithLifecycle()
             val language by viewModel.language.collectAsStateWithLifecycle()
+            val showAlbumArt by viewModel.showAlbumArt.collectAsStateWithLifecycle()
 
             val colorScheme = if (isDark) {
                 darkColorScheme(primary = Color(themeColor))
@@ -789,6 +856,7 @@ class MainActivity : ComponentActivity() {
                         playlists = playlists,
                         volume = volume,
                         autoPlay = autoPlay,
+                        showAlbumArt = showAlbumArt,
                         themeColor = themeColor,
                         language = language,
                         onToggleTheme = { viewModel.toggleTheme() },
@@ -798,6 +866,7 @@ class MainActivity : ComponentActivity() {
                             withService { service -> service.setVolume(it) }
                         },
                         onSetAutoPlay = { viewModel.setAutoPlay(it) },
+                        onSetShowAlbumArt = { viewModel.setShowAlbumArt(it) },
                         onSearchChange = { viewModel.setSearchText(it) },
                         onScanClick = {
                             if (hasAudioPermission()) {

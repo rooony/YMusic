@@ -17,6 +17,12 @@ class SettingsManager(context: Context) {
 
     fun getAutoPlay(): Boolean = prefs.getBoolean("auto_play", true)
 
+    fun saveShowAlbumArt(value: Boolean) {
+        prefs.edit().putBoolean("show_album_art", value).apply()
+    }
+
+    fun getShowAlbumArt(): Boolean = prefs.getBoolean("show_album_art", false)
+
     fun saveThemeColor(color: Int) {
         prefs.edit().putInt("theme_color", color).apply()
     }
