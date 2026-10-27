@@ -8,6 +8,8 @@ import android.app.Service
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.media.AudioFocusRequest
+import android.media.AudioManager
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Build
@@ -42,6 +44,9 @@ class MusicService : Service() {
     private var currentIndex = -1
     private var currentMode = PlayMode.LIST_LOOP
 
+    private lateinit var audioManager: AudioManager
+    private var audioFocusRequest: AudioFocusRequest? = null
+
     inner class LocalBinder : Binder() {
         fun getService(): MusicService = this@MusicService
     }
@@ -56,6 +61,9 @@ class MusicService : Service() {
 
         player = ExoPlayer.Builder(this).build()
         player.volume = settingsManager.getVolume()
+
+        audioManager = getSystemService(AudioManager::class.java)
+        requestAudioFocus()
 
         // MediaSessionCompat publishes metadata and playback state to the system
         // (lock screen, notification shade, Bluetooth, Android Auto, ...).
@@ -130,8 +138,40 @@ class MusicService : Service() {
             localStateManager.saveLastPosition(player.currentPosition)
         }
         mediaSession?.release()
+        abandonAudioFocus()
         player.release()
         super.onDestroy()
+    }
+
+    /**
+     * Requests audio focus for music playback. When another app gains media focus,
+     * whether long-term (AUDIOFOCUS_LOSS) or transient / short-term
+     * (AUDIOFOCUS_LOSS_TRANSIENT), playback is paused. Playback does not resume
+     * automatically; the user resumes it manually.
+     */
+    private fun requestAudioFocus() {
+        if (audioFocusRequest != null) return
+
+        val listener = AudioManager.OnAudioFocusChangeListener { changeType ->
+            if (changeType == AudioManager.AUDIOFOCUS_LOSS ||
+                changeType == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT
+            ) {
+                player.pause()
+                updatePlaybackState()
+                updateNotification()
+            }
+        }
+
+        audioFocusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+            .setOnAudioFocusChangeListener(listener)
+            .build()
+
+        audioManager.requestAudioFocus(audioFocusRequest!!)
+    }
+
+    private fun abandonAudioFocus() {
+        audioFocusRequest?.let { audioManager.abandonAudioFocusRequest(it) }
+        audioFocusRequest = null
     }
 
     fun setPlayMode(mode: PlayMode) {
