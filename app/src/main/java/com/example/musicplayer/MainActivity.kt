@@ -138,6 +138,7 @@ fun YMusicScreen(
     var showAboutDialog by remember { mutableStateOf(false) }
     var folderToRemove by remember { mutableStateOf<String?>(null) }
     var localVolume by remember { mutableStateOf(volume) }
+    var excludedExpanded by remember { mutableStateOf(true) }
 
     val playingHighlight =
         MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.22f else 0.12f)
@@ -593,34 +594,45 @@ fun YMusicScreen(
 //        }
 
             if (excludedFolders.isNotEmpty()) {
-                Text(
-                    text = if (language == LanguageManager.LANG_ZH) "已排除目录" else "Excluded folders",
-                    modifier = Modifier.padding(top = 12.dp, bottom = 4.dp)
-                )
-                Column(
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 8.dp)
+                        .padding(top = 12.dp, bottom = 4.dp)
+                        .clickable { excludedExpanded = !excludedExpanded },
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    excludedFolders.forEachIndexed { _, folder ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp),
-                            verticalAlignment = Alignment.Top
-                        ) {
-                            Text(
-                                text = folder,
+                    Text(
+                        text = (if (excludedExpanded) "▾ " else "▸ ") +
+                                if (language == LanguageManager.LANG_ZH) "已排除目录" else "Excluded folders",
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                if (excludedExpanded) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp)
+                    ) {
+                        excludedFolders.forEachIndexed { _, folder ->
+                            Row(
                                 modifier = Modifier
-                                    .weight(1f)
-                                    .padding(end = 8.dp)
-                            )
-                            ActionIconButton(
-                                drawableRes = R.drawable.icon_remove,
-                                contentDescription = if (language == LanguageManager.LANG_ZH) "删除" else "Remove",
-                                onClick = { folderToRemove = folder },
-                                modifier = Modifier.align(Alignment.Top)
-                            )
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.Top
+                            ) {
+                                Text(
+                                    text = folder,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .padding(end = 8.dp)
+                                )
+                                ActionIconButton(
+                                    drawableRes = R.drawable.icon_remove,
+                                    contentDescription = if (language == LanguageManager.LANG_ZH) "删除" else "Remove",
+                                    onClick = { folderToRemove = folder },
+                                    modifier = Modifier.align(Alignment.Top)
+                                )
+                            }
                         }
                     }
                 }
