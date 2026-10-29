@@ -17,6 +17,8 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,8 +33,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -206,11 +206,21 @@ fun YMusicScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "Y³Music",
-                style = MaterialTheme.typography.headlineSmall,
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.clickable { showAboutDialog = true }
-            )
+            ) {
+                Image(
+                    painter = painterResource(R.drawable.icon_king),
+                    contentDescription = null,
+                    modifier = Modifier.size(28.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "Y³Music",
+                    style = MaterialTheme.typography.headlineSmall
+                )
+            }
             Row {
                 ActionIconButton(
                     drawableRes = if (isDark) R.drawable.icon_day_day else R.drawable.icon_night,
@@ -604,7 +614,8 @@ fun YMusicScreen(
                     Text(
                         text = (if (excludedExpanded) "▾ " else "▸ ") +
                                 if (language == LanguageManager.LANG_ZH) "已排除目录" else "Excluded folders",
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        fontWeight = FontWeight.Bold
                     )
                 }
                 if (excludedExpanded) {
@@ -640,7 +651,8 @@ fun YMusicScreen(
 
             Text(
                 text = if (language == LanguageManager.LANG_ZH) "歌曲 (${listToShow.size})" else "Songs (${listToShow.size})",
-                modifier = Modifier.padding(top = 12.dp, bottom = 4.dp)
+                modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
+                fontWeight = FontWeight.Bold
             )
 
             if (selectedTab == "playlist") {
