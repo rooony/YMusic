@@ -97,6 +97,7 @@ fun YMusicScreen(
     autoPlay: Boolean,
     showAlbumArt: Boolean,
     showPath: Boolean,
+    isScanning: Boolean,
     themeColor: Int,
     language: String,
     onToggleTheme: () -> Unit,
@@ -198,402 +199,403 @@ fun YMusicScreen(
         else -> filteredSongs
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.clickable { showAboutDialog = true }
-            ) {
-                Image(
-                    painter = painterResource(R.drawable.icon_king),
-                    contentDescription = null,
-                    modifier = Modifier.size(28.dp)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = "Y³Music",
-                    style = MaterialTheme.typography.headlineSmall
-                )
-            }
-            Row {
-                ActionIconButton(
-                    drawableRes = if (isDark) R.drawable.icon_day_day else R.drawable.icon_night,
-                    contentDescription = if (isDark) {
-                        if (language == LanguageManager.LANG_ZH) "切换到浅色" else "Switch to light"
-                    } else {
-                        if (language == LanguageManager.LANG_ZH) "切换到深色" else "Switch to dark"
-                    },
-                    onClick = onToggleTheme,
-                    iconSize = if (isDark) 40.dp else 24.dp,
-                    iconTint = Color.White
-                )
-                Spacer(modifier = Modifier.width(3.dp))
-                ActionIconButton(
-                    drawableRes = R.drawable.icon_scan,
-                    contentDescription = if (language == LanguageManager.LANG_ZH) "扫描" else "Scan",
-                    onClick = onScanClick,
-                    iconSize = 24.dp,
-                    iconTint = Color.White
-                )
-                Spacer(modifier = Modifier.width(3.dp))
-                ActionIconButton(
-                    drawableRes = R.drawable.icon_settings,
-                    contentDescription = if (language == LanguageManager.LANG_ZH) "设置" else "Settings",
-                    onClick = { showSettings = !showSettings },
-                    iconSize = 24.dp,
-                    iconTint = Color.White
-                )
-            }
-        }
-
-        if (showAboutDialog) {
-            AlertDialog(
-                onDismissRequest = { showAboutDialog = false },
-                text = {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(80.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "Y³Music by R_Y\r\n\r\nPower by Android & Github & Deepseek",
-                            modifier = Modifier.fillMaxWidth(),
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                },
-                confirmButton = {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        TextButton(onClick = { showAboutDialog = false }) {
-                            Text(if (language == LanguageManager.LANG_ZH) "确定" else "OK")
-                        }
-                    }
-                }
-            )
-        }
-
-        val targetFolder = folderToRemove
-        if (targetFolder != null) {
-            AlertDialog(
-                onDismissRequest = { folderToRemove = null },
-                title = {
-                    Text(if (language == LanguageManager.LANG_ZH) "删除已排除目录" else "Remove excluded folder")
-                },
-                text = {
-                    Text(
-                        if (language == LanguageManager.LANG_ZH) {
-                            "确定要删除以下已排除目录吗？\n\n$targetFolder"
-                        } else {
-                            "Remove this excluded folder?\n\n$targetFolder"
-                        }
-                    )
-                },
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            onRemoveExcludedFolder(targetFolder)
-                            folderToRemove = null
-                        }
-                    ) {
-                        Text(if (language == LanguageManager.LANG_ZH) "删除" else "Remove")
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { folderToRemove = null }) {
-                        Text(if (language == LanguageManager.LANG_ZH) "取消" else "Cancel")
-                    }
-                }
-            )
-        }
-
+    Box(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
+                .fillMaxSize()
+                .padding(16.dp)
         ) {
-
-            if (showSettings) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.clickable { showAboutDialog = true }
                 ) {
-                    Text(if (language == LanguageManager.LANG_ZH) "音量" else "Volume")
-                    Slider(
-                        value = localVolume,
-                        onValueChange = {
-                            localVolume = it
-                            onSetVolume(it)
-                        }
+                    Image(
+                        painter = painterResource(R.drawable.icon_king),
+                        contentDescription = null,
+                        modifier = Modifier.size(28.dp)
                     )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Y³Music",
+                        style = MaterialTheme.typography.headlineSmall
+                    )
+                }
+                Row {
+                    ActionIconButton(
+                        drawableRes = if (isDark) R.drawable.icon_day_day else R.drawable.icon_night,
+                        contentDescription = if (isDark) {
+                            if (language == LanguageManager.LANG_ZH) "切换到浅色" else "Switch to light"
+                        } else {
+                            if (language == LanguageManager.LANG_ZH) "切换到深色" else "Switch to dark"
+                        },
+                        onClick = onToggleTheme,
+                        iconSize = if (isDark) 40.dp else 24.dp,
+                        iconTint = Color.White
+                    )
+                    Spacer(modifier = Modifier.width(3.dp))
+                    ActionIconButton(
+                        drawableRes = R.drawable.icon_scan,
+                        contentDescription = if (language == LanguageManager.LANG_ZH) "扫描" else "Scan",
+                        onClick = onScanClick,
+                        iconSize = 24.dp,
+                        iconTint = Color.White
+                    )
+                    Spacer(modifier = Modifier.width(3.dp))
+                    ActionIconButton(
+                        drawableRes = R.drawable.icon_settings,
+                        contentDescription = if (language == LanguageManager.LANG_ZH) "设置" else "Settings",
+                        onClick = { showSettings = !showSettings },
+                        iconSize = 24.dp,
+                        iconTint = Color.White
+                    )
+                }
+            }
 
-                    Text(if (language == LanguageManager.LANG_ZH) "自动播放" else "Auto play")
-                    Button(onClick = { onSetAutoPlay(!autoPlay) }) {
-                        Text(
-                            if (autoPlay) {
-                                if (language == LanguageManager.LANG_ZH) "关闭自动播放" else "Turn off autoplay"
-                            } else {
-                                if (language == LanguageManager.LANG_ZH) "开启自动播放" else "Turn on autoplay"
-                            }
-                        )
-                    }
-
-                    Text(if (language == LanguageManager.LANG_ZH) "专辑图片" else "Album art")
-                    Button(onClick = { onSetShowAlbumArt(!showAlbumArt) }) {
-                        Text(
-                            if (showAlbumArt) {
-                                if (language == LanguageManager.LANG_ZH) "隐藏专辑图片" else "Hide album art"
-                            } else {
-                                if (language == LanguageManager.LANG_ZH) "显示专辑图片" else "Show album art"
-                            }
-                        )
-                    }
-
-                    Text(if (language == LanguageManager.LANG_ZH) "歌曲路径" else "Song path")
-                    Button(onClick = { onSetShowPath(!showPath) }) {
-                        Text(
-                            if (showPath) {
-                                if (language == LanguageManager.LANG_ZH) "隐藏歌曲路径" else "Hide song path"
-                            } else {
-                                if (language == LanguageManager.LANG_ZH) "显示歌曲路径" else "Show song path"
-                            }
-                        )
-                    }
-
-                    Text(if (language == LanguageManager.LANG_ZH) "主题色" else "Theme color")
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly
-                    ) {
-                        listOf(
-                            0xFFEF4444.toInt(),
-                            0xFF4F46E5.toInt(),
-                            0xFF06B6D4.toInt(),
-                            0xFF10B981.toInt(),
-                            0xFFF59E0B.toInt()
-                        ).forEach { color ->
-                            Box(
-                                modifier = Modifier
-                                    .background(Color(color), RoundedCornerShape(6.dp))
-                                    .padding(12.dp)
-                                    .clickable { onSetThemeColor(color) }
+            if (showAboutDialog) {
+                AlertDialog(
+                    onDismissRequest = { showAboutDialog = false },
+                    text = {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(80.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Y³Music by R_Y\r\n\r\nPower by Android & Github & Deepseek",
+                                modifier = Modifier.fillMaxWidth(),
+                                textAlign = TextAlign.Center
                             )
                         }
+                    },
+                    confirmButton = {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            TextButton(onClick = { showAboutDialog = false }) {
+                                Text(if (language == LanguageManager.LANG_ZH) "确定" else "OK")
+                            }
+                        }
                     }
+                )
+            }
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly
+            val targetFolder = folderToRemove
+            if (targetFolder != null) {
+                AlertDialog(
+                    onDismissRequest = { folderToRemove = null },
+                    title = {
+                        Text(if (language == LanguageManager.LANG_ZH) "删除已排除目录" else "Remove excluded folder")
+                    },
+                    text = {
+                        Text(
+                            if (language == LanguageManager.LANG_ZH) {
+                                "确定要删除以下已排除目录吗？\n\n$targetFolder"
+                            } else {
+                                "Remove this excluded folder?\n\n$targetFolder"
+                            }
+                        )
+                    },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                onRemoveExcludedFolder(targetFolder)
+                                folderToRemove = null
+                            }
+                        ) {
+                            Text(if (language == LanguageManager.LANG_ZH) "删除" else "Remove")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { folderToRemove = null }) {
+                            Text(if (language == LanguageManager.LANG_ZH) "取消" else "Cancel")
+                        }
+                    }
+                )
+            }
+
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+            ) {
+
+                if (showSettings) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp)
                     ) {
-                        Button(onClick = { onLanguageChange(LanguageManager.LANG_ZH) }) { Text("中文") }
-                        Button(onClick = { onLanguageChange(LanguageManager.LANG_EN) }) { Text("English") }
+                        Text(if (language == LanguageManager.LANG_ZH) "音量" else "Volume")
+                        Slider(
+                            value = localVolume,
+                            onValueChange = {
+                                localVolume = it
+                                onSetVolume(it)
+                            }
+                        )
+
+                        Text(if (language == LanguageManager.LANG_ZH) "自动播放" else "Auto play")
+                        Button(onClick = { onSetAutoPlay(!autoPlay) }) {
+                            Text(
+                                if (autoPlay) {
+                                    if (language == LanguageManager.LANG_ZH) "关闭自动播放" else "Turn off autoplay"
+                                } else {
+                                    if (language == LanguageManager.LANG_ZH) "开启自动播放" else "Turn on autoplay"
+                                }
+                            )
+                        }
+
+                        Text(if (language == LanguageManager.LANG_ZH) "专辑图片" else "Album art")
+                        Button(onClick = { onSetShowAlbumArt(!showAlbumArt) }) {
+                            Text(
+                                if (showAlbumArt) {
+                                    if (language == LanguageManager.LANG_ZH) "隐藏专辑图片" else "Hide album art"
+                                } else {
+                                    if (language == LanguageManager.LANG_ZH) "显示专辑图片" else "Show album art"
+                                }
+                            )
+                        }
+
+                        Text(if (language == LanguageManager.LANG_ZH) "歌曲路径" else "Song path")
+                        Button(onClick = { onSetShowPath(!showPath) }) {
+                            Text(
+                                if (showPath) {
+                                    if (language == LanguageManager.LANG_ZH) "隐藏歌曲路径" else "Hide song path"
+                                } else {
+                                    if (language == LanguageManager.LANG_ZH) "显示歌曲路径" else "Show song path"
+                                }
+                            )
+                        }
+
+                        Text(if (language == LanguageManager.LANG_ZH) "主题色" else "Theme color")
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceEvenly
+                        ) {
+                            listOf(
+                                0xFFEF4444.toInt(),
+                                0xFF4F46E5.toInt(),
+                                0xFF06B6D4.toInt(),
+                                0xFF10B981.toInt(),
+                                0xFFF59E0B.toInt()
+                            ).forEach { color ->
+                                Box(
+                                    modifier = Modifier
+                                        .background(Color(color), RoundedCornerShape(6.dp))
+                                        .padding(12.dp)
+                                        .clickable { onSetThemeColor(color) }
+                                )
+                            }
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceEvenly
+                        ) {
+                            Button(onClick = { onLanguageChange(LanguageManager.LANG_ZH) }) { Text("中文") }
+                            Button(onClick = { onLanguageChange(LanguageManager.LANG_EN) }) { Text("English") }
+                        }
                     }
                 }
-            }
 
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 16.dp, bottom = 8.dp)
-                    .background(
-                        color = if (isDark) Color(0xFF1F1F1F) else Color(0xFFF0F0F0),
-                        shape = RoundedCornerShape(16.dp)
-                    )
-                    .padding(16.dp)
-            ) {
-                Column {
-                    Text(
-                        text = currentSong?.title
-                            ?: if (language == LanguageManager.LANG_ZH) "未播放" else "Not playing",
-                        color = if (isDark) Color.White else Color.Black,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = currentSong?.artist
-                            ?: if (language == LanguageManager.LANG_ZH) "请选择一首歌" else "Select a song",
-                        color = if (isDark) Color(0xFFBDBDBD) else Color(0xFF555555),
-                        fontWeight = FontWeight.Bold
-                    )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp, bottom = 8.dp)
+                        .background(
+                            color = if (isDark) Color(0xFF1F1F1F) else Color(0xFFF0F0F0),
+                            shape = RoundedCornerShape(16.dp)
+                        )
+                        .padding(16.dp)
+                ) {
+                    Column {
+                        Text(
+                            text = currentSong?.title
+                                ?: if (language == LanguageManager.LANG_ZH) "未播放" else "Not playing",
+                            color = if (isDark) Color.White else Color.Black,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = currentSong?.artist
+                                ?: if (language == LanguageManager.LANG_ZH) "请选择一首歌" else "Select a song",
+                            color = if (isDark) Color(0xFFBDBDBD) else Color(0xFF555555),
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
-            }
 
-            FlowRow(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceAround,
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                TabButton(
-                    text = if (language == LanguageManager.LANG_ZH) "全部" else "All",
-                    selected = selectedTab == "all",
-                    onClick = { selectedTab = "all" }
-                )
-                TabButton(
-                    text = if (language == LanguageManager.LANG_ZH) "收藏" else "Favorites",
-                    selected = selectedTab == "favorite",
-                    onClick = { selectedTab = "favorite" }
-                )
+                FlowRow(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceAround,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    TabButton(
+                        text = if (language == LanguageManager.LANG_ZH) "全部" else "All",
+                        selected = selectedTab == "all",
+                        onClick = { selectedTab = "all" }
+                    )
+                    TabButton(
+                        text = if (language == LanguageManager.LANG_ZH) "收藏" else "Favorites",
+                        selected = selectedTab == "favorite",
+                        onClick = { selectedTab = "favorite" }
+                    )
 //                Button(onClick = {
 //                    selectedTab = "recent"
 //                }) { Text(if (language == LanguageManager.LANG_ZH) "最近" else "Recent") }
-                TabButton(
-                    text = if (language == LanguageManager.LANG_ZH) "专辑" else "Albums",
-                    selected = selectedTab == "album",
-                    onClick = { selectedTab = "album"; selectedAlbum = null }
-                )
-                TabButton(
-                    text = if (language == LanguageManager.LANG_ZH) "歌手" else "Artists",
-                    selected = selectedTab == "artist",
-                    onClick = { selectedTab = "artist"; selectedArtist = null }
-                )
+                    TabButton(
+                        text = if (language == LanguageManager.LANG_ZH) "专辑" else "Albums",
+                        selected = selectedTab == "album",
+                        onClick = { selectedTab = "album"; selectedAlbum = null }
+                    )
+                    TabButton(
+                        text = if (language == LanguageManager.LANG_ZH) "歌手" else "Artists",
+                        selected = selectedTab == "artist",
+                        onClick = { selectedTab = "artist"; selectedArtist = null }
+                    )
 //                Button(onClick = {
 //                    selectedTab = "queue"
 //                }) { Text(if (language == LanguageManager.LANG_ZH) "列表" else "Queue") }
 //            Button(onClick = { selectedTab = "playlist" }) { Text(if (language == LanguageManager.LANG_ZH) "歌单" else "Playlists") }
-            }
+                }
 
 //            Text(if (language == LanguageManager.LANG_ZH) "当前模式：${playMode.name}" else "Mode: ${playMode.name}")
 
-            OutlinedTextField(
-                value = searchText,
-                onValueChange = onSearchChange,
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text(if (language == LanguageManager.LANG_ZH) "搜索歌曲 / 歌手 / 专辑" else "Search song / artist / album") }
-            )
+                OutlinedTextField(
+                    value = searchText,
+                    onValueChange = onSearchChange,
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text(if (language == LanguageManager.LANG_ZH) "搜索歌曲 / 歌手 / 专辑" else "Search song / artist / album") }
+                )
 
-            if (currentSong != null) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp)
-                ) {
-                    Slider(
-                        value = if (durationMs > 0L) (currentPositionMs.toFloat() / durationMs.toFloat()) else 0f,
-                        onValueChange = {
-                            val target = (it * durationMs).toLong()
-                            onSeek(target)
-                        }
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                if (currentSong != null) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp)
                     ) {
-                        Text(formatDuration(currentPositionMs))
-                        Text(formatDuration(durationMs))
+                        Slider(
+                            value = if (durationMs > 0L) (currentPositionMs.toFloat() / durationMs.toFloat()) else 0f,
+                            onValueChange = {
+                                val target = (it * durationMs).toLong()
+                                onSeek(target)
+                            }
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(formatDuration(currentPositionMs))
+                            Text(formatDuration(durationMs))
+                        }
                     }
                 }
-            }
 
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp)
                 ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        ActionIconButton(
+                            drawableRes = R.drawable.icon_pre_normal,
+                            pressedDrawableRes = R.drawable.icon_pre_pressed,
+                            contentDescription = if (language == LanguageManager.LANG_ZH) "上一首" else "Previous",
+                            onClick = onPreviousClick,
+                            buttonSize = 48.dp,
+                            iconSize = 48.dp
+                        )
+                        ActionIconButton(
+                            drawableRes = if (isPlaying) R.drawable.icon_pause_normal else R.drawable.icon_play_normal,
+                            pressedDrawableRes = if (isPlaying) R.drawable.icon_pause_pressed else R.drawable.icon_play_pressed,
+                            contentDescription = if (language == LanguageManager.LANG_ZH) {
+                                if (isPlaying) "暂停" else "播放"
+                            } else {
+                                if (isPlaying) "Pause" else "Play"
+                            },
+                            onClick = onPlayPauseClick,
+                            buttonSize = 56.dp,
+                            iconSize = 48.dp
+                        )
+                        ActionIconButton(
+                            drawableRes = R.drawable.icon_next_normal,
+                            pressedDrawableRes = R.drawable.icon_next_pressed,
+                            contentDescription = if (language == LanguageManager.LANG_ZH) "下一首" else "Next",
+                            onClick = onNextClick,
+                            buttonSize = 48.dp,
+                            iconSize = 48.dp
+                        )
+                    }
                     ActionIconButton(
-                        drawableRes = R.drawable.icon_pre_normal,
-                        pressedDrawableRes = R.drawable.icon_pre_pressed,
-                        contentDescription = if (language == LanguageManager.LANG_ZH) "上一首" else "Previous",
-                        onClick = onPreviousClick,
-                        buttonSize = 48.dp,
-                        iconSize = 48.dp
-                    )
-                    ActionIconButton(
-                        drawableRes = if (isPlaying) R.drawable.icon_pause_normal else R.drawable.icon_play_normal,
-                        pressedDrawableRes = if (isPlaying) R.drawable.icon_pause_pressed else R.drawable.icon_play_pressed,
-                        contentDescription = if (language == LanguageManager.LANG_ZH) {
-                            if (isPlaying) "暂停" else "播放"
-                        } else {
-                            if (isPlaying) "Pause" else "Play"
+                        drawableRes = when (playMode) {
+                            PlayMode.LIST_LOOP -> R.drawable.icon_mode_list_loop_normal
+                            PlayMode.SHUFFLE -> R.drawable.icon_mode_shuffle_normal
+                            PlayMode.SINGLE_LOOP -> R.drawable.icon_mode_single_loop_normal
                         },
-                        onClick = onPlayPauseClick,
-                        buttonSize = 56.dp,
-                        iconSize = 48.dp
-                    )
-                    ActionIconButton(
-                        drawableRes = R.drawable.icon_next_normal,
-                        pressedDrawableRes = R.drawable.icon_next_pressed,
-                        contentDescription = if (language == LanguageManager.LANG_ZH) "下一首" else "Next",
-                        onClick = onNextClick,
-                        buttonSize = 48.dp,
-                        iconSize = 48.dp
+                        pressedDrawableRes = when (playMode) {
+                            PlayMode.LIST_LOOP -> R.drawable.icon_mode_list_loop_pressed
+                            PlayMode.SHUFFLE -> R.drawable.icon_mode_shuffle_pressed
+                            PlayMode.SINGLE_LOOP -> R.drawable.icon_mode_single_loop_pressed
+                        },
+                        contentDescription = when (playMode) {
+                            PlayMode.LIST_LOOP -> if (language == LanguageManager.LANG_ZH) "列表循环" else "List loop"
+                            PlayMode.SHUFFLE -> if (language == LanguageManager.LANG_ZH) "随机" else "Shuffle"
+                            PlayMode.SINGLE_LOOP -> if (language == LanguageManager.LANG_ZH) "单曲" else "Single loop"
+                        },
+                        onClick = {
+                            val next = when (playMode) {
+                                PlayMode.LIST_LOOP -> PlayMode.SHUFFLE
+                                PlayMode.SHUFFLE -> PlayMode.SINGLE_LOOP
+                                PlayMode.SINGLE_LOOP -> PlayMode.LIST_LOOP
+                            }
+                            onPlayModeChange(next)
+                        },
+                        buttonSize = 24.dp,
+                        iconSize = 16.dp,
+                        modifier = Modifier.align(Alignment.CenterStart)
                     )
                 }
-                ActionIconButton(
-                    drawableRes = when (playMode) {
-                        PlayMode.LIST_LOOP -> R.drawable.icon_mode_list_loop_normal
-                        PlayMode.SHUFFLE -> R.drawable.icon_mode_shuffle_normal
-                        PlayMode.SINGLE_LOOP -> R.drawable.icon_mode_single_loop_normal
-                    },
-                    pressedDrawableRes = when (playMode) {
-                        PlayMode.LIST_LOOP -> R.drawable.icon_mode_list_loop_pressed
-                        PlayMode.SHUFFLE -> R.drawable.icon_mode_shuffle_pressed
-                        PlayMode.SINGLE_LOOP -> R.drawable.icon_mode_single_loop_pressed
-                    },
-                    contentDescription = when (playMode) {
-                        PlayMode.LIST_LOOP -> if (language == LanguageManager.LANG_ZH) "列表循环" else "List loop"
-                        PlayMode.SHUFFLE -> if (language == LanguageManager.LANG_ZH) "随机" else "Shuffle"
-                        PlayMode.SINGLE_LOOP -> if (language == LanguageManager.LANG_ZH) "单曲" else "Single loop"
-                    },
-                    onClick = {
-                        val next = when (playMode) {
-                            PlayMode.LIST_LOOP -> PlayMode.SHUFFLE
-                            PlayMode.SHUFFLE -> PlayMode.SINGLE_LOOP
-                            PlayMode.SINGLE_LOOP -> PlayMode.LIST_LOOP
-                        }
-                        onPlayModeChange(next)
-                    },
-                    buttonSize = 24.dp,
-                    iconSize = 16.dp,
-                    modifier = Modifier.align(Alignment.CenterStart)
-                )
-            }
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                OutlinedTextField(
-                    value = folderInput,
-                    onValueChange = { folderInput = it },
-                    modifier = Modifier.weight(1f),
-                    placeholder = { Text("/storage/emulated/0/Download") }
-                )
-                Spacer(modifier = Modifier.width(3.dp))
-                ActionIconButton(
-                    drawableRes = R.drawable.icon_add,
-                    contentDescription = if (language == LanguageManager.LANG_ZH) "添加" else "Add",
-                    onClick = {
-                        if (folderInput.isNotBlank()) {
-                            onAddExcludedFolder(folderInput)
-                            folderInput = ""
-                        }
-                    },
-                    buttonSize = 40.dp,
-                    iconSize = 18.dp,
-                    iconTint = Color.White
-                )
-            }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = folderInput,
+                        onValueChange = { folderInput = it },
+                        modifier = Modifier.weight(1f),
+                        placeholder = { Text("/storage/emulated/0/Download") }
+                    )
+                    Spacer(modifier = Modifier.width(3.dp))
+                    ActionIconButton(
+                        drawableRes = R.drawable.icon_add,
+                        contentDescription = if (language == LanguageManager.LANG_ZH) "添加" else "Add",
+                        onClick = {
+                            if (folderInput.isNotBlank()) {
+                                onAddExcludedFolder(folderInput)
+                                folderInput = ""
+                            }
+                        },
+                        buttonSize = 40.dp,
+                        iconSize = 18.dp,
+                        iconTint = Color.White
+                    )
+                }
 
 //        Row(
 //            modifier = Modifier
@@ -619,129 +621,199 @@ fun YMusicScreen(
 //            }
 //        }
 
-            if (excludedFolders.isNotEmpty()) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 12.dp, bottom = 4.dp)
-                        .clickable { excludedExpanded = !excludedExpanded },
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = (if (excludedExpanded) "▾ " else "▸ ") +
-                                if (language == LanguageManager.LANG_ZH) "已排除目录" else "Excluded folders",
-                        modifier = Modifier.weight(1f),
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-                if (excludedExpanded) {
-                    Column(
+                if (excludedFolders.isNotEmpty()) {
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(bottom = 8.dp)
+                            .padding(top = 12.dp, bottom = 4.dp)
+                            .clickable { excludedExpanded = !excludedExpanded },
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        excludedFolders.forEachIndexed { _, folder ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp),
-                                verticalAlignment = Alignment.Top
-                            ) {
-                                Text(
-                                    text = folder,
+                        Text(
+                            text = (if (excludedExpanded) "▾ " else "▸ ") +
+                                    if (language == LanguageManager.LANG_ZH) "已排除目录" else "Excluded folders",
+                            modifier = Modifier.weight(1f),
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    if (excludedExpanded) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 8.dp)
+                        ) {
+                            excludedFolders.forEachIndexed { _, folder ->
+                                Row(
                                     modifier = Modifier
-                                        .weight(1f)
-                                        .padding(end = 8.dp)
-                                )
-                                ActionIconButton(
-                                    drawableRes = R.drawable.icon_remove,
-                                    contentDescription = if (language == LanguageManager.LANG_ZH) "删除" else "Remove",
-                                    onClick = { folderToRemove = folder },
-                                    modifier = Modifier.align(Alignment.Top)
-                                )
+                                        .fillMaxWidth()
+                                        .padding(vertical = 4.dp),
+                                    verticalAlignment = Alignment.Top
+                                ) {
+                                    Text(
+                                        text = folder,
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .padding(end = 8.dp)
+                                    )
+                                    ActionIconButton(
+                                        drawableRes = R.drawable.icon_remove,
+                                        contentDescription = if (language == LanguageManager.LANG_ZH) "删除" else "Remove",
+                                        onClick = { folderToRemove = folder },
+                                        modifier = Modifier.align(Alignment.Top)
+                                    )
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            Text(
-                text = if (language == LanguageManager.LANG_ZH) "歌曲 (${listToShow.size})" else "Songs (${listToShow.size})",
-                modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
-                fontWeight = FontWeight.Bold
-            )
+                Text(
+                    text = if (language == LanguageManager.LANG_ZH) "歌曲 (${listToShow.size})" else "Songs (${listToShow.size})",
+                    modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
+                    fontWeight = FontWeight.Bold
+                )
 
-            if (selectedTab == "playlist") {
-                if (playlists.isEmpty()) {
-                    Text(if (language == LanguageManager.LANG_ZH) "暂无歌单" else "No playlists yet")
-                } else {
+                if (selectedTab == "playlist") {
+                    if (playlists.isEmpty()) {
+                        Text(if (language == LanguageManager.LANG_ZH) "暂无歌单" else "No playlists yet")
+                    } else {
+                        Column {
+                            playlists.forEachIndexed { _, playlist ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 8.dp)
+                                        .clickable { selectedPlaylistName = playlist.name },
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(playlist.name)
+                                    ActionIconButton(
+                                        drawableRes = R.drawable.icon_remove,
+                                        contentDescription = if (language == LanguageManager.LANG_ZH) "删除" else "Delete",
+                                        onClick = { onDeletePlaylist(playlist.name) }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    return
+                }
+
+                if (selectedTab == "album" && selectedAlbum == null) {
                     Column {
-                        playlists.forEachIndexed { _, playlist ->
+                        albums.forEachIndexed { _, album ->
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(vertical = 8.dp)
-                                    .clickable { selectedPlaylistName = playlist.name },
+                                    .clickable { selectedAlbum = album.name },
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(playlist.name)
-                                ActionIconButton(
-                                    drawableRes = R.drawable.icon_remove,
-                                    contentDescription = if (language == LanguageManager.LANG_ZH) "删除" else "Delete",
-                                    onClick = { onDeletePlaylist(playlist.name) }
-                                )
+                                Column {
+                                    Text(album.name)
+                                    Text(album.artist)
+                                }
+                                Text("${album.count} ${if (language == LanguageManager.LANG_ZH) "首" else "songs"}")
                             }
                         }
                     }
+                    return
                 }
-                return
-            }
 
-            if (selectedTab == "album" && selectedAlbum == null) {
-                Column {
-                    albums.forEachIndexed { _, album ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 8.dp)
-                                .clickable { selectedAlbum = album.name },
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column {
-                                Text(album.name)
-                                Text(album.artist)
+                if (selectedTab == "artist" && selectedArtist == null) {
+                    Column {
+                        artists.forEachIndexed { _, artist ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp)
+                                    .clickable { selectedArtist = artist.name },
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(artist.name)
+                                Text("${artist.count} ${if (language == LanguageManager.LANG_ZH) "首" else "tracks"}")
                             }
-                            Text("${album.count} ${if (language == LanguageManager.LANG_ZH) "首" else "songs"}")
                         }
                     }
+                    return
                 }
-                return
-            }
 
-            if (selectedTab == "artist" && selectedArtist == null) {
-                Column {
-                    artists.forEachIndexed { _, artist ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 8.dp)
-                                .clickable { selectedArtist = artist.name },
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(artist.name)
-                            Text("${artist.count} ${if (language == LanguageManager.LANG_ZH) "首" else "tracks"}")
+                if (selectedTab == "queue") {
+                    Column {
+                        queue.forEachIndexed { index, song ->
+                            val isPlaying = song.id == currentSong?.id
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(
+                                        color = if (isPlaying) playingHighlight else Color.Transparent,
+                                        shape = RoundedCornerShape(8.dp)
+                                    )
+                                    .padding(horizontal = 8.dp, vertical = 8.dp)
+                                    .clickable { onSongClick(song) },
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text(
+                                        text = song.title,
+                                        color = if (isPlaying) MaterialTheme.colorScheme.primary else Color.Unspecified,
+                                        fontWeight = if (isPlaying) FontWeight.Bold else null
+                                    )
+                                    Text(song.artist)
+                                }
+                                Row {
+                                    Button(onClick = {
+                                        onReorderQueue(
+                                            index,
+                                            index - 1
+                                        )
+                                    }) { Text("↑") }
+                                    Button(onClick = {
+                                        onReorderQueue(
+                                            index,
+                                            index + 1
+                                        )
+                                    }) { Text("↓") }
+                                    ActionIconButton(
+                                        drawableRes = R.drawable.icon_remove,
+                                        contentDescription = if (language == LanguageManager.LANG_ZH) "从列表移除" else "Remove from queue",
+                                        onClick = { onRemoveFromQueue(song.id) }
+                                    )
+                                    Text(formatDuration(song.duration))
+                                }
+                            }
                         }
                     }
+                    return
                 }
-                return
-            }
 
-            if (selectedTab == "queue") {
                 Column {
-                    queue.forEachIndexed { index, song ->
+                    listToShow.forEachIndexed { _, song ->
+                        if (song.id == -1L) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp)
+                                    .clickable {
+                                        if (selectedTab == "album") selectedAlbum = song.album
+                                        if (selectedTab == "artist") selectedArtist = song.artist
+                                    },
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text(song.title)
+                                    Text(song.artist)
+                                }
+                                Text(if (language == LanguageManager.LANG_ZH) "查看" else "Open")
+                            }
+                            return@forEachIndexed
+                        }
+
                         val isPlaying = song.id == currentSong?.id
                         Row(
                             modifier = Modifier
@@ -750,133 +822,102 @@ fun YMusicScreen(
                                     color = if (isPlaying) playingHighlight else Color.Transparent,
                                     shape = RoundedCornerShape(8.dp)
                                 )
-                                .padding(horizontal = 8.dp, vertical = 8.dp)
-                                .clickable { onSongClick(song) },
+                                .padding(horizontal = 8.dp, vertical = 8.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column {
-                                Text(
-                                    text = song.title,
-                                    color = if (isPlaying) MaterialTheme.colorScheme.primary else Color.Unspecified,
-                                    fontWeight = if (isPlaying) FontWeight.Bold else null
-                                )
-                                Text(song.artist)
+                            Row(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable { onSongClick(song) },
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                if (showAlbumArt) {
+                                    SongAlbumArt(song = song, size = 48.dp)
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                }
+                                Column {
+                                    Text(
+                                        text = song.title,
+                                        color = if (isPlaying) MaterialTheme.colorScheme.primary else Color.Unspecified,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(song.artist)
+                                    if (showPath) {
+                                        Text(
+                                            text = song.path,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = if (isDark) Color(0xFFBDBDBD) else Color(
+                                                0xFF555555
+                                            )
+                                        )
+                                    }
+                                }
                             }
-                            Row {
-                                Button(onClick = { onReorderQueue(index, index - 1) }) { Text("↑") }
-                                Button(onClick = { onReorderQueue(index, index + 1) }) { Text("↓") }
+
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                if (song.duration > 0L) {
+                                    Text(formatDuration(song.duration))
+                                }
+
+                                if (selectedPlaylistName != null) {
+                                    Button(
+                                        onClick = { onAddToPlaylist(selectedPlaylistName!!, song) }
+                                    ) {
+                                        Text(if (language == LanguageManager.LANG_ZH) "加入歌单" else "Add")
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.width(3.dp))
+                                val isFavorite = favoriteIds.contains(song.id)
                                 ActionIconButton(
-                                    drawableRes = R.drawable.icon_remove,
-                                    contentDescription = if (language == LanguageManager.LANG_ZH) "从列表移除" else "Remove from queue",
-                                    onClick = { onRemoveFromQueue(song.id) }
+                                    drawableRes = if (isFavorite) {
+                                        R.drawable.icon_add_favorite
+                                    } else {
+                                        R.drawable.icon_delete_favorite
+                                    },
+                                    contentDescription = when {
+                                        isFavorite && language == LanguageManager.LANG_ZH -> "取消收藏"
+                                        isFavorite -> "Remove from favorites"
+                                        language == LanguageManager.LANG_ZH -> "收藏"
+                                        else -> "Add to favorites"
+                                    },
+                                    onClick = { onToggleFavorite(song) },
+                                    buttonSize = 40.dp,
+                                    iconSize = 28.dp,
+                                    iconTint = if (isFavorite) Color.Red else Color.White
                                 )
-                                Text(formatDuration(song.duration))
                             }
                         }
                     }
                 }
-                return
             }
+        }
 
-            Column {
-                listToShow.forEachIndexed { _, song ->
-                    if (song.id == -1L) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 8.dp)
-                                .clickable {
-                                    if (selectedTab == "album") selectedAlbum = song.album
-                                    if (selectedTab == "artist") selectedArtist = song.artist
-                                },
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column {
-                                Text(song.title)
-                                Text(song.artist)
-                            }
-                            Text(if (language == LanguageManager.LANG_ZH) "查看" else "Open")
-                        }
-                        return@forEachIndexed
-                    }
-
-                    val isPlaying = song.id == currentSong?.id
-                    Row(
+        if (isScanning) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.45f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Image(
+                        painter = painterResource(R.drawable.icon_loading),
+                        contentDescription = if (language == LanguageManager.LANG_ZH) "加载中" else "Loading",
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .background(
-                                color = if (isPlaying) playingHighlight else Color.Transparent,
-                                shape = RoundedCornerShape(8.dp)
-                            )
-                            .padding(horizontal = 8.dp, vertical = 8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clickable { onSongClick(song) },
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            if (showAlbumArt) {
-                                SongAlbumArt(song = song, size = 48.dp)
-                                Spacer(modifier = Modifier.width(10.dp))
-                            }
-                            Column {
-                                Text(
-                                    text = song.title,
-                                    color = if (isPlaying) MaterialTheme.colorScheme.primary else Color.Unspecified,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(song.artist)
-                                if (showPath) {
-                                    Text(
-                                        text = song.path,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = if (isDark) Color(0xFFBDBDBD) else Color(0xFF555555)
-                                    )
-                                }
-                            }
-                        }
-
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            if (song.duration > 0L) {
-                                Text(formatDuration(song.duration))
-                            }
-
-                            if (selectedPlaylistName != null) {
-                                Button(
-                                    onClick = { onAddToPlaylist(selectedPlaylistName!!, song) }
-                                ) {
-                                    Text(if (language == LanguageManager.LANG_ZH) "加入歌单" else "Add")
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.width(3.dp))
-                            val isFavorite = favoriteIds.contains(song.id)
-                            ActionIconButton(
-                                drawableRes = if (isFavorite) {
-                                    R.drawable.icon_add_favorite
-                                } else {
-                                    R.drawable.icon_delete_favorite
-                                },
-                                contentDescription = when {
-                                    isFavorite && language == LanguageManager.LANG_ZH -> "取消收藏"
-                                    isFavorite -> "Remove from favorites"
-                                    language == LanguageManager.LANG_ZH -> "收藏"
-                                    else -> "Add to favorites"
-                                },
-                                onClick = { onToggleFavorite(song) },
-                                buttonSize = 40.dp,
-                                iconSize = 28.dp,
-                                iconTint = if (isFavorite) Color.Red else Color.White
-                            )
-                        }
-                    }
+                            .size(120.dp)
+                    )
+                    Spacer(modifier = Modifier.height(0.dp))
+                    Text(
+                        text = if (language == LanguageManager.LANG_ZH) "扫描中..." else "Scanning...",
+                        color = Color.White,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
                 }
             }
         }
@@ -1053,6 +1094,7 @@ class MainActivity : ComponentActivity() {
             val language by viewModel.language.collectAsStateWithLifecycle()
             val showAlbumArt by viewModel.showAlbumArt.collectAsStateWithLifecycle()
             val showPath by viewModel.showPath.collectAsStateWithLifecycle()
+            val isScanning by viewModel.isScanning.collectAsStateWithLifecycle()
             val isPlaying by viewModel.isPlaying.collectAsStateWithLifecycle()
 
             val colorScheme = if (isDark) {
@@ -1086,6 +1128,7 @@ class MainActivity : ComponentActivity() {
                         autoPlay = autoPlay,
                         showAlbumArt = showAlbumArt,
                         showPath = showPath,
+                        isScanning = isScanning,
                         themeColor = themeColor,
                         language = language,
                         onToggleTheme = { viewModel.toggleTheme() },

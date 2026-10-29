@@ -16,10 +16,12 @@ import com.example.musicplayer.SettingsManager
 import com.example.musicplayer.data.Song
 import com.example.musicplayer.data.SongDatabase
 import com.example.musicplayer.data.SongRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -94,6 +96,9 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _language = MutableStateFlow(settingsManager.getLanguage())
     val language: StateFlow<String> = _language.asStateFlow()
+
+    private val _isScanning = MutableStateFlow(false)
+    val isScanning: StateFlow<Boolean> = _isScanning.asStateFlow()
 
     init {
         viewModelScope.launch {
@@ -213,14 +218,21 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     fun refreshSongs() {
         viewModelScope.launch {
-            repository.addDefaultExcludedFoldersIfMissing()
-            val result = repository.scanAndSaveSongs()
-            _songs.value = result
-            updateAlbums(result)
-            updateArtists(result)
-            refreshFavorites()
-            refreshRecent()
-            refreshExcludedFolders()
+            _isScanning.value = true
+            try {
+                val result = withContext(Dispatchers.IO) {
+                    repository.addDefaultExcludedFoldersIfMissing()
+                    repository.scanAndSaveSongs()
+                }
+                _songs.value = result
+                updateAlbums(result)
+                updateArtists(result)
+                refreshFavorites()
+                refreshRecent()
+                refreshExcludedFolders()
+            } finally {
+                _isScanning.value = false
+            }
         }
     }
 
