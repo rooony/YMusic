@@ -23,11 +23,17 @@ class SettingsManager(context: Context) {
 
     fun getShowAlbumArt(): Boolean = prefs.getBoolean("show_album_art", false)
 
+    fun saveShowPath(value: Boolean) {
+        prefs.edit().putBoolean("show_path", value).apply()
+    }
+
+    fun getShowPath(): Boolean = prefs.getBoolean("show_path", true)
+
     fun saveThemeColor(color: Int) {
         prefs.edit().putInt("theme_color", color).apply()
     }
 
-    fun getThemeColor(): Int = prefs.getInt("theme_color", 0xFF4F46E5.toInt())
+    fun getThemeColor(): Int = prefs.getInt("theme_color", 0xFFEF4444.toInt())
 
     fun saveDarkMode(value: Boolean) {
         prefs.edit().putBoolean("dark_mode", value).apply()

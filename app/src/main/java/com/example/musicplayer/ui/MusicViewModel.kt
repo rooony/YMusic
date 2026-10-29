@@ -86,6 +86,9 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private val _showAlbumArt = MutableStateFlow(settingsManager.getShowAlbumArt())
     val showAlbumArt: StateFlow<Boolean> = _showAlbumArt.asStateFlow()
 
+    private val _showPath = MutableStateFlow(settingsManager.getShowPath())
+    val showPath: StateFlow<Boolean> = _showPath.asStateFlow()
+
     private val _themeColor = MutableStateFlow(settingsManager.getThemeColor())
     val themeColor: StateFlow<Int> = _themeColor.asStateFlow()
 
@@ -140,6 +143,11 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     fun setShowAlbumArt(value: Boolean) {
         _showAlbumArt.value = value
         settingsManager.saveShowAlbumArt(value)
+    }
+
+    fun setShowPath(value: Boolean) {
+        _showPath.value = value
+        settingsManager.saveShowPath(value)
     }
 
     fun setPlayMode(mode: PlayMode) {

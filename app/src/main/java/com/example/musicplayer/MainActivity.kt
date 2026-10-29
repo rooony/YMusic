@@ -96,6 +96,7 @@ fun YMusicScreen(
     volume: Float,
     autoPlay: Boolean,
     showAlbumArt: Boolean,
+    showPath: Boolean,
     themeColor: Int,
     language: String,
     onToggleTheme: () -> Unit,
@@ -103,6 +104,7 @@ fun YMusicScreen(
     onSetVolume: (Float) -> Unit,
     onSetAutoPlay: (Boolean) -> Unit,
     onSetShowAlbumArt: (Boolean) -> Unit,
+    onSetShowPath: (Boolean) -> Unit,
     onSearchChange: (String) -> Unit,
     onScanClick: () -> Unit,
     onAddExcludedFolder: (String) -> Unit,
@@ -360,6 +362,17 @@ fun YMusicScreen(
                         )
                     }
 
+                    Text(if (language == LanguageManager.LANG_ZH) "歌曲路径" else "Song path")
+                    Button(onClick = { onSetShowPath(!showPath) }) {
+                        Text(
+                            if (showPath) {
+                                if (language == LanguageManager.LANG_ZH) "隐藏歌曲路径" else "Hide song path"
+                            } else {
+                                if (language == LanguageManager.LANG_ZH) "显示歌曲路径" else "Show song path"
+                            }
+                        )
+                    }
+
                     Text(if (language == LanguageManager.LANG_ZH) "主题色" else "Theme color")
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -367,6 +380,7 @@ fun YMusicScreen(
                     ) {
                         listOf(
                             0xFFEF4444.toInt(),
+                            0xFF4F46E5.toInt(),
                             0xFF06B6D4.toInt(),
                             0xFF10B981.toInt(),
                             0xFFF59E0B.toInt()
@@ -817,11 +831,13 @@ fun YMusicScreen(
                                     fontWeight = FontWeight.Bold
                                 )
                                 Text(song.artist)
-                                Text(
-                                    text = song.path,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = if (isDark) Color(0xFFBDBDBD) else Color(0xFF555555)
-                                )
+                                if (showPath) {
+                                    Text(
+                                        text = song.path,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = if (isDark) Color(0xFFBDBDBD) else Color(0xFF555555)
+                                    )
+                                }
                             }
                         }
 
@@ -1036,6 +1052,7 @@ class MainActivity : ComponentActivity() {
             val themeColor by viewModel.themeColor.collectAsStateWithLifecycle()
             val language by viewModel.language.collectAsStateWithLifecycle()
             val showAlbumArt by viewModel.showAlbumArt.collectAsStateWithLifecycle()
+            val showPath by viewModel.showPath.collectAsStateWithLifecycle()
             val isPlaying by viewModel.isPlaying.collectAsStateWithLifecycle()
 
             val colorScheme = if (isDark) {
@@ -1068,6 +1085,7 @@ class MainActivity : ComponentActivity() {
                         volume = volume,
                         autoPlay = autoPlay,
                         showAlbumArt = showAlbumArt,
+                        showPath = showPath,
                         themeColor = themeColor,
                         language = language,
                         onToggleTheme = { viewModel.toggleTheme() },
@@ -1078,6 +1096,7 @@ class MainActivity : ComponentActivity() {
                         },
                         onSetAutoPlay = { viewModel.setAutoPlay(it) },
                         onSetShowAlbumArt = { viewModel.setShowAlbumArt(it) },
+                        onSetShowPath = { viewModel.setShowPath(it) },
                         onSearchChange = { viewModel.setSearchText(it) },
                         onScanClick = {
                             if (hasAudioPermission()) {
