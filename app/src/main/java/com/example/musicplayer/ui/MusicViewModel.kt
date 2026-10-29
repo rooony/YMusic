@@ -38,6 +38,9 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private val _currentSong = MutableStateFlow<Song?>(null)
     val currentSong: StateFlow<Song?> = _currentSong.asStateFlow()
 
+    private val _isPlaying = MutableStateFlow(false)
+    val isPlaying: StateFlow<Boolean> = _isPlaying.asStateFlow()
+
     private val _favoriteIds = MutableStateFlow<Set<Long>>(emptySet())
     val favoriteIds: StateFlow<Set<Long>> = _favoriteIds.asStateFlow()
 
@@ -266,6 +269,10 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setCurrentSong(song: Song?) {
         _currentSong.value = song
+    }
+
+    fun setIsPlaying(isPlaying: Boolean) {
+        _isPlaying.value = isPlaying
     }
 
     fun setQueue(queue: List<Song>) {

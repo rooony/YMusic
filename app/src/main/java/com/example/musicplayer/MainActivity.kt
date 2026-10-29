@@ -31,6 +31,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -79,6 +81,7 @@ fun YMusicScreen(
     albums: List<AlbumInfo>,
     artists: List<ArtistInfo>,
     currentSong: Song?,
+    isPlaying: Boolean,
     favoriteIds: Set<Long>,
     recentSongs: List<Song>,
     searchText: String,
@@ -219,7 +222,7 @@ fun YMusicScreen(
                 )
                 Spacer(modifier = Modifier.width(3.dp))
                 ActionIconButton(
-                    drawableRes = R.drawable.icon_search,
+                    drawableRes = R.drawable.icon_scan,
                     contentDescription = if (language == LanguageManager.LANG_ZH) "扫描" else "Scan",
                     onClick = onScanClick,
                     iconSize = 24.dp,
@@ -420,9 +423,9 @@ fun YMusicScreen(
                 Button(onClick = {
                     selectedTab = "artist"; selectedArtist = null
                 }) { Text(if (language == LanguageManager.LANG_ZH) "歌手" else "Artists") }
-                Button(onClick = {
-                    selectedTab = "queue"
-                }) { Text(if (language == LanguageManager.LANG_ZH) "列表" else "Queue") }
+//                Button(onClick = {
+//                    selectedTab = "queue"
+//                }) { Text(if (language == LanguageManager.LANG_ZH) "列表" else "Queue") }
 //            Button(onClick = { selectedTab = "playlist" }) { Text(if (language == LanguageManager.LANG_ZH) "歌单" else "Playlists") }
             }
 
@@ -471,11 +474,37 @@ fun YMusicScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 8.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Button(onClick = onPreviousClick) { Text(if (language == LanguageManager.LANG_ZH) "上一首" else "Prev") }
-                Button(onClick = onPlayPauseClick) { Text(if (language == LanguageManager.LANG_ZH) "播放/暂停" else "Play/Pause") }
-                Button(onClick = onNextClick) { Text(if (language == LanguageManager.LANG_ZH) "下一首" else "Next") }
+                ActionIconButton(
+                    drawableRes = R.drawable.icon_pre_normal,
+                    pressedDrawableRes = R.drawable.icon_pre_pressed,
+                    contentDescription = if (language == LanguageManager.LANG_ZH) "上一首" else "Previous",
+                    onClick = onPreviousClick,
+                    buttonSize = 48.dp,
+                    iconSize = 48.dp
+                )
+                ActionIconButton(
+                    drawableRes = if (isPlaying) R.drawable.icon_pause_normal else R.drawable.icon_play_normal,
+                    pressedDrawableRes = if (isPlaying) R.drawable.icon_pause_pressed else R.drawable.icon_play_pressed,
+                    contentDescription = if (language == LanguageManager.LANG_ZH) {
+                        if (isPlaying) "暂停" else "播放"
+                    } else {
+                        if (isPlaying) "Pause" else "Play"
+                    },
+                    onClick = onPlayPauseClick,
+                    buttonSize = 56.dp,
+                    iconSize = 48.dp
+                )
+                ActionIconButton(
+                    drawableRes = R.drawable.icon_next_normal,
+                    pressedDrawableRes = R.drawable.icon_next_pressed,
+                    contentDescription = if (language == LanguageManager.LANG_ZH) "下一首" else "Next",
+                    onClick = onNextClick,
+                    buttonSize = 48.dp,
+                    iconSize = 48.dp
+                )
             }
 
             Row(
@@ -821,15 +850,20 @@ private fun ActionIconButton(
     modifier: Modifier = Modifier,
     buttonSize: Dp = 40.dp,
     iconSize: Dp = 24.dp,
-    iconTint: Color? = null
+    iconTint: Color? = null,
+    pressedDrawableRes: Int? = null
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val iconRes = if (pressed && pressedDrawableRes != null) pressedDrawableRes else drawableRes
     Button(
         onClick = onClick,
         modifier = modifier.size(buttonSize),
-        contentPadding = PaddingValues(0.dp)
+        contentPadding = PaddingValues(0.dp),
+        interactionSource = interactionSource
     ) {
         Image(
-            painter = painterResource(drawableRes),
+            painter = painterResource(iconRes),
             contentDescription = contentDescription,
             modifier = Modifier.size(iconSize),
             colorFilter = iconTint?.let { ColorFilter.tint(it) }
@@ -911,6 +945,7 @@ class MainActivity : ComponentActivity() {
             val themeColor by viewModel.themeColor.collectAsStateWithLifecycle()
             val language by viewModel.language.collectAsStateWithLifecycle()
             val showAlbumArt by viewModel.showAlbumArt.collectAsStateWithLifecycle()
+            val isPlaying by viewModel.isPlaying.collectAsStateWithLifecycle()
 
             val colorScheme = if (isDark) {
                 darkColorScheme(primary = Color(themeColor))
@@ -928,6 +963,7 @@ class MainActivity : ComponentActivity() {
                         albums = albums,
                         artists = artists,
                         currentSong = currentSong,
+                        isPlaying = isPlaying,
                         favoriteIds = favoriteIds,
                         recentSongs = recentSongs,
                         searchText = searchText,
@@ -964,12 +1000,18 @@ class MainActivity : ComponentActivity() {
                         onSongClick = { song -> playSong(song) },
                         onToggleFavorite = { viewModel.toggleFavorite(it) },
                         onAddToPlaylist = { name, song -> viewModel.addSongToPlaylist(name, song) },
-                        onPlayPauseClick = { withService { it.togglePlayPause() } },
+                        onPlayPauseClick = {
+                            withService { service ->
+                                service.togglePlayPause()
+                                viewModel.setIsPlaying(service.isPlaying())
+                            }
+                        },
                         onNextClick = {
                             withService { service ->
                                 service.playNext()
                                 val next = service.getCurrentSong()
                                 viewModel.setCurrentSong(next)
+                                viewModel.setIsPlaying(true)
                                 next?.let { viewModel.markRecentPlay(it) }
                             }
                         },
@@ -978,6 +1020,7 @@ class MainActivity : ComponentActivity() {
                                 service.playPrevious()
                                 val previous = service.getCurrentSong()
                                 viewModel.setCurrentSong(previous)
+                                viewModel.setIsPlaying(true)
                                 previous?.let { viewModel.markRecentPlay(it) }
                             }
                         },
@@ -1006,6 +1049,7 @@ class MainActivity : ComponentActivity() {
                         if (playing != null && playing.id != viewModel.currentSong.value?.id) {
                             viewModel.setCurrentSong(playing)
                         }
+                        viewModel.setIsPlaying(service.isPlaying())
                     }
                     delay(500L)
                 }
