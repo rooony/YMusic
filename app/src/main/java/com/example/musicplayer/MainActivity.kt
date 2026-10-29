@@ -68,6 +68,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.musicplayer.data.Song
@@ -215,7 +216,7 @@ fun YMusicScreen(
                     modifier = Modifier.clickable { showAboutDialog = true }
                 ) {
                     Image(
-                        painter = painterResource(R.drawable.icon_king),
+                        painter = painterResource(R.drawable.icon_king_one),
                         contentDescription = null,
                         modifier = Modifier.size(28.dp)
                     )
@@ -630,7 +631,7 @@ fun YMusicScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = (if (excludedExpanded) "▾ " else "▸ ") +
+                            text = (if (excludedExpanded) "▼ " else "▶ ") +
                                     if (language == LanguageManager.LANG_ZH) "已排除目录" else "Excluded folders",
                             modifier = Modifier.weight(1f),
                             fontWeight = FontWeight.Bold
@@ -955,7 +956,7 @@ private fun SongAlbumArt(song: Song, size: Dp = 48.dp) {
         } else {
             Text(
                 text = "♪",
-                style = MaterialTheme.typography.titleMedium,
+                fontSize = 32.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
