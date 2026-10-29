@@ -38,6 +38,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
@@ -354,7 +355,7 @@ fun YMusicScreen(
                         horizontalArrangement = Arrangement.SpaceEvenly
                     ) {
                         listOf(
-                            0xFF4F46E5.toInt(),
+                            0xFFEF4444.toInt(),
                             0xFF06B6D4.toInt(),
                             0xFF10B981.toInt(),
                             0xFFF59E0B.toInt()
@@ -409,37 +410,36 @@ fun YMusicScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Button(onClick = {
-                    selectedTab = "all"
-                }) { Text(if (language == LanguageManager.LANG_ZH) "全部" else "All") }
-                Button(onClick = {
-                    selectedTab = "favorite"
-                }) { Text(if (language == LanguageManager.LANG_ZH) "收藏" else "Favorites") }
-                Button(onClick = {
-                    selectedTab = "recent"
-                }) { Text(if (language == LanguageManager.LANG_ZH) "最近" else "Recent") }
-                Button(onClick = {
-                    selectedTab = "album"; selectedAlbum = null
-                }) { Text(if (language == LanguageManager.LANG_ZH) "专辑" else "Albums") }
-                Button(onClick = {
-                    selectedTab = "artist"; selectedArtist = null
-                }) { Text(if (language == LanguageManager.LANG_ZH) "歌手" else "Artists") }
+                TabButton(
+                    text = if (language == LanguageManager.LANG_ZH) "全部" else "All",
+                    selected = selectedTab == "all",
+                    onClick = { selectedTab = "all" }
+                )
+                TabButton(
+                    text = if (language == LanguageManager.LANG_ZH) "收藏" else "Favorites",
+                    selected = selectedTab == "favorite",
+                    onClick = { selectedTab = "favorite" }
+                )
+//                Button(onClick = {
+//                    selectedTab = "recent"
+//                }) { Text(if (language == LanguageManager.LANG_ZH) "最近" else "Recent") }
+                TabButton(
+                    text = if (language == LanguageManager.LANG_ZH) "专辑" else "Albums",
+                    selected = selectedTab == "album",
+                    onClick = { selectedTab = "album"; selectedAlbum = null }
+                )
+                TabButton(
+                    text = if (language == LanguageManager.LANG_ZH) "歌手" else "Artists",
+                    selected = selectedTab == "artist",
+                    onClick = { selectedTab = "artist"; selectedArtist = null }
+                )
 //                Button(onClick = {
 //                    selectedTab = "queue"
 //                }) { Text(if (language == LanguageManager.LANG_ZH) "列表" else "Queue") }
 //            Button(onClick = { selectedTab = "playlist" }) { Text(if (language == LanguageManager.LANG_ZH) "歌单" else "Playlists") }
             }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                Button(onClick = { onPlayModeChange(PlayMode.LIST_LOOP) }) { Text(if (language == LanguageManager.LANG_ZH) "列表循环" else "List") }
-                Button(onClick = { onPlayModeChange(PlayMode.SHUFFLE) }) { Text(if (language == LanguageManager.LANG_ZH) "随机" else "Shuffle") }
-                Button(onClick = { onPlayModeChange(PlayMode.SINGLE_LOOP) }) { Text(if (language == LanguageManager.LANG_ZH) "单曲" else "Single") }
-            }
-
-            Text(if (language == LanguageManager.LANG_ZH) "当前模式：${playMode.name}" else "Mode: ${playMode.name}")
+//            Text(if (language == LanguageManager.LANG_ZH) "当前模式：${playMode.name}" else "Mode: ${playMode.name}")
 
             if (currentSong != null) {
                 Column(
@@ -471,40 +471,72 @@ fun YMusicScreen(
                 placeholder = { Text(if (language == LanguageManager.LANG_ZH) "搜索歌曲 / 歌手 / 专辑" else "Search song / artist / album") }
             )
 
-            Row(
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 8.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(top = 8.dp)
             ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    ActionIconButton(
+                        drawableRes = R.drawable.icon_pre_normal,
+                        pressedDrawableRes = R.drawable.icon_pre_pressed,
+                        contentDescription = if (language == LanguageManager.LANG_ZH) "上一首" else "Previous",
+                        onClick = onPreviousClick,
+                        buttonSize = 48.dp,
+                        iconSize = 48.dp
+                    )
+                    ActionIconButton(
+                        drawableRes = if (isPlaying) R.drawable.icon_pause_normal else R.drawable.icon_play_normal,
+                        pressedDrawableRes = if (isPlaying) R.drawable.icon_pause_pressed else R.drawable.icon_play_pressed,
+                        contentDescription = if (language == LanguageManager.LANG_ZH) {
+                            if (isPlaying) "暂停" else "播放"
+                        } else {
+                            if (isPlaying) "Pause" else "Play"
+                        },
+                        onClick = onPlayPauseClick,
+                        buttonSize = 56.dp,
+                        iconSize = 48.dp
+                    )
+                    ActionIconButton(
+                        drawableRes = R.drawable.icon_next_normal,
+                        pressedDrawableRes = R.drawable.icon_next_pressed,
+                        contentDescription = if (language == LanguageManager.LANG_ZH) "下一首" else "Next",
+                        onClick = onNextClick,
+                        buttonSize = 48.dp,
+                        iconSize = 48.dp
+                    )
+                }
                 ActionIconButton(
-                    drawableRes = R.drawable.icon_pre_normal,
-                    pressedDrawableRes = R.drawable.icon_pre_pressed,
-                    contentDescription = if (language == LanguageManager.LANG_ZH) "上一首" else "Previous",
-                    onClick = onPreviousClick,
-                    buttonSize = 48.dp,
-                    iconSize = 48.dp
-                )
-                ActionIconButton(
-                    drawableRes = if (isPlaying) R.drawable.icon_pause_normal else R.drawable.icon_play_normal,
-                    pressedDrawableRes = if (isPlaying) R.drawable.icon_pause_pressed else R.drawable.icon_play_pressed,
-                    contentDescription = if (language == LanguageManager.LANG_ZH) {
-                        if (isPlaying) "暂停" else "播放"
-                    } else {
-                        if (isPlaying) "Pause" else "Play"
+                    drawableRes = when (playMode) {
+                        PlayMode.LIST_LOOP -> R.drawable.icon_mode_list_loop_normal
+                        PlayMode.SHUFFLE -> R.drawable.icon_mode_shuffle_normal
+                        PlayMode.SINGLE_LOOP -> R.drawable.icon_mode_single_loop_normal
                     },
-                    onClick = onPlayPauseClick,
-                    buttonSize = 56.dp,
-                    iconSize = 48.dp
-                )
-                ActionIconButton(
-                    drawableRes = R.drawable.icon_next_normal,
-                    pressedDrawableRes = R.drawable.icon_next_pressed,
-                    contentDescription = if (language == LanguageManager.LANG_ZH) "下一首" else "Next",
-                    onClick = onNextClick,
-                    buttonSize = 48.dp,
-                    iconSize = 48.dp
+                    pressedDrawableRes = when (playMode) {
+                        PlayMode.LIST_LOOP -> R.drawable.icon_mode_list_loop_pressed
+                        PlayMode.SHUFFLE -> R.drawable.icon_mode_shuffle_pressed
+                        PlayMode.SINGLE_LOOP -> R.drawable.icon_mode_single_loop_pressed
+                    },
+                    contentDescription = when (playMode) {
+                        PlayMode.LIST_LOOP -> if (language == LanguageManager.LANG_ZH) "列表循环" else "List loop"
+                        PlayMode.SHUFFLE -> if (language == LanguageManager.LANG_ZH) "随机" else "Shuffle"
+                        PlayMode.SINGLE_LOOP -> if (language == LanguageManager.LANG_ZH) "单曲" else "Single loop"
+                    },
+                    onClick = {
+                        val next = when (playMode) {
+                            PlayMode.LIST_LOOP -> PlayMode.SHUFFLE
+                            PlayMode.SHUFFLE -> PlayMode.SINGLE_LOOP
+                            PlayMode.SINGLE_LOOP -> PlayMode.LIST_LOOP
+                        }
+                        onPlayModeChange(next)
+                    },
+                    buttonSize = 24.dp,
+                    iconSize = 16.dp,
+                    modifier = Modifier.align(Alignment.CenterStart)
                 )
             }
 
@@ -520,16 +552,20 @@ fun YMusicScreen(
                     modifier = Modifier.weight(1f),
                     placeholder = { Text("/storage/emulated/0/Download") }
                 )
-                Button(
+                Spacer(modifier = Modifier.width(3.dp))
+                ActionIconButton(
+                    drawableRes = R.drawable.icon_add,
+                    contentDescription = if (language == LanguageManager.LANG_ZH) "添加" else "Add",
                     onClick = {
                         if (folderInput.isNotBlank()) {
                             onAddExcludedFolder(folderInput)
                             folderInput = ""
                         }
-                    }
-                ) {
-                    Text(if (language == LanguageManager.LANG_ZH) "添加" else "Add")
-                }
+                    },
+                    buttonSize = 40.dp,
+                    iconSize = 20.dp,
+                    iconTint = Color.White
+                )
             }
 
 //        Row(
@@ -752,7 +788,7 @@ fun YMusicScreen(
                                 Text(
                                     text = song.title,
                                     color = if (isPlaying) MaterialTheme.colorScheme.primary else Color.Unspecified,
-                                    fontWeight = if (isPlaying) FontWeight.Bold else null
+                                    fontWeight = FontWeight.Bold
                                 )
                                 Text(song.artist)
                                 Text(
@@ -868,6 +904,34 @@ private fun ActionIconButton(
             contentDescription = contentDescription,
             modifier = Modifier.size(iconSize),
             colorFilter = iconTint?.let { ColorFilter.tint(it) }
+        )
+    }
+}
+
+@Composable
+private fun TabButton(
+    text: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Button(
+        onClick = onClick,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = if (selected) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.surfaceVariant
+            },
+            contentColor = if (selected) {
+                MaterialTheme.colorScheme.onPrimary
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            }
+        )
+    ) {
+        Text(
+            text = text,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
         )
     }
 }
