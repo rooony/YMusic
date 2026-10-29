@@ -227,14 +227,14 @@ fun YMusicScreen(
                 }
                 Row {
                     ActionIconButton(
-                        drawableRes = if (isDark) R.drawable.icon_day_day else R.drawable.icon_night,
+                        drawableRes = if (isDark) R.drawable.icon_night else R.drawable.icon_day,
                         contentDescription = if (isDark) {
                             if (language == LanguageManager.LANG_ZH) "切换到浅色" else "Switch to light"
                         } else {
                             if (language == LanguageManager.LANG_ZH) "切换到深色" else "Switch to dark"
                         },
                         onClick = onToggleTheme,
-                        iconSize = if (isDark) 40.dp else 24.dp,
+                        iconSize = if (isDark) 20.dp else 24.dp,
                         iconTint = Color.White
                     )
                     Spacer(modifier = Modifier.width(3.dp))
