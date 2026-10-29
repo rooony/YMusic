@@ -404,12 +404,14 @@ fun YMusicScreen(
                     Text(
                         text = currentSong?.title
                             ?: if (language == LanguageManager.LANG_ZH) "未播放" else "Not playing",
-                        color = if (isDark) Color.White else Color.Black
+                        color = if (isDark) Color.White else Color.Black,
+                        fontWeight = FontWeight.Bold
                     )
                     Text(
                         text = currentSong?.artist
                             ?: if (language == LanguageManager.LANG_ZH) "请选择一首歌" else "Select a song",
-                        color = if (isDark) Color(0xFFBDBDBD) else Color(0xFF555555)
+                        color = if (isDark) Color(0xFFBDBDBD) else Color(0xFF555555),
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }
@@ -418,7 +420,7 @@ fun YMusicScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.SpaceAround,
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 TabButton(
@@ -452,6 +454,13 @@ fun YMusicScreen(
 
 //            Text(if (language == LanguageManager.LANG_ZH) "当前模式：${playMode.name}" else "Mode: ${playMode.name}")
 
+            OutlinedTextField(
+                value = searchText,
+                onValueChange = onSearchChange,
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text(if (language == LanguageManager.LANG_ZH) "搜索歌曲 / 歌手 / 专辑" else "Search song / artist / album") }
+            )
+
             if (currentSong != null) {
                 Column(
                     modifier = Modifier
@@ -474,13 +483,6 @@ fun YMusicScreen(
                     }
                 }
             }
-
-            OutlinedTextField(
-                value = searchText,
-                onValueChange = onSearchChange,
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text(if (language == LanguageManager.LANG_ZH) "搜索歌曲 / 歌手 / 专辑" else "Search song / artist / album") }
-            )
 
             Box(
                 modifier = Modifier
@@ -574,7 +576,7 @@ fun YMusicScreen(
                         }
                     },
                     buttonSize = 40.dp,
-                    iconSize = 20.dp,
+                    iconSize = 18.dp,
                     iconTint = Color.White
                 )
             }
