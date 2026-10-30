@@ -200,6 +200,16 @@ fun YMusicScreen(
         else -> filteredSongs
     }
 
+    val listTitle = when (selectedTab) {
+        "favorite" -> if (language == LanguageManager.LANG_ZH) "收藏" else "Favorites"
+        "recent" -> if (language == LanguageManager.LANG_ZH) "最近" else "Recent"
+        "album" -> selectedAlbum ?: if (language == LanguageManager.LANG_ZH) "专辑" else "Albums"
+        "artist" -> selectedArtist ?: if (language == LanguageManager.LANG_ZH) "歌手" else "Artists"
+        "queue" -> if (language == LanguageManager.LANG_ZH) "播放列表" else "Playlists"
+        "playlist" -> selectedPlaylistName ?: if (language == LanguageManager.LANG_ZH) "播放列表" else "Playlists"
+        else -> if (language == LanguageManager.LANG_ZH) "全部" else "All"
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
@@ -677,7 +687,7 @@ fun YMusicScreen(
                 }
 
                 Text(
-                    text = if (language == LanguageManager.LANG_ZH) "歌曲 (${listToShow.size})" else "Songs (${listToShow.size})",
+                    text = "$listTitle (${listToShow.size})",
                     modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
                     fontWeight = FontWeight.Bold
                 )
