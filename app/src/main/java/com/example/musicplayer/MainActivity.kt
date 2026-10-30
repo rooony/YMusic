@@ -571,7 +571,7 @@ fun YMusicScreen(
                     ActionIconButton(
                         drawableRes = R.drawable.icon_playing_list,
                         contentDescription = if (language == LanguageManager.LANG_ZH) "当前播放" else "Queue",
-                        onClick = { selectedTab = "queue" },
+                        onClick = { selectedTab = if (queue.isEmpty()) "all" else "queue" },
                         buttonSize = 24.dp,
                         iconSize = 16.dp,
                         modifier = Modifier.align(Alignment.CenterEnd)
@@ -1191,9 +1191,13 @@ class MainActivity : ComponentActivity() {
                         onToggleFavorite = { viewModel.toggleFavorite(it) },
                         onAddToPlaylist = { name, song -> viewModel.addSongToPlaylist(name, song) },
                         onPlayPauseClick = {
-                            withService { service ->
-                                service.togglePlayPause()
-                                viewModel.setIsPlaying(service.isPlaying())
+                            if (currentSong == null && songs.isNotEmpty()) {
+                                playSong(songs.random(), songs)
+                            } else {
+                                withService { service ->
+                                    service.togglePlayPause()
+                                    viewModel.setIsPlaying(service.isPlaying())
+                                }
                             }
                         },
                         onNextClick = {
