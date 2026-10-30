@@ -111,7 +111,7 @@ fun YMusicScreen(
     onScanClick: () -> Unit,
     onAddExcludedFolder: (String) -> Unit,
     onRemoveExcludedFolder: (String) -> Unit,
-    onSongClick: (Song) -> Unit,
+    onSongClick: (Song, List<Song>) -> Unit,
     onToggleFavorite: (Song) -> Unit,
     onAddToPlaylist: (String, Song) -> Unit,
     onPlayPauseClick: () -> Unit,
@@ -568,6 +568,14 @@ fun YMusicScreen(
                         iconSize = 16.dp,
                         modifier = Modifier.align(Alignment.CenterStart)
                     )
+                    ActionIconButton(
+                        drawableRes = R.drawable.icon_playing_list,
+                        contentDescription = if (language == LanguageManager.LANG_ZH) "当前播放" else "Queue",
+                        onClick = { selectedTab = "queue" },
+                        buttonSize = 24.dp,
+                        iconSize = 16.dp,
+                        modifier = Modifier.align(Alignment.CenterEnd)
+                    )
                 }
 
                 Row(
@@ -743,8 +751,10 @@ fun YMusicScreen(
                 }
 
                 if (selectedTab == "queue") {
-                    Column {
-                        queue.forEachIndexed { index, song ->
+                    if (queue.isEmpty()) {
+                        Text(if (language == LanguageManager.LANG_ZH) "暂无播放列表" else "Queue is empty")
+                    } else Column {
+                        queue.forEachIndexed { _, song ->
                             val isPlaying = song.id == currentSong?.id
                             Row(
                                 modifier = Modifier
@@ -753,38 +763,64 @@ fun YMusicScreen(
                                         color = if (isPlaying) playingHighlight else Color.Transparent,
                                         shape = RoundedCornerShape(8.dp)
                                     )
-                                    .padding(horizontal = 8.dp, vertical = 8.dp)
-                                    .clickable { onSongClick(song) },
+                                    .padding(horizontal = 8.dp, vertical = 8.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Column {
-                                    Text(
-                                        text = song.title,
-                                        color = if (isPlaying) MaterialTheme.colorScheme.primary else Color.Unspecified,
-                                        fontWeight = if (isPlaying) FontWeight.Bold else null
-                                    )
-                                    Text(song.artist)
+                                Row(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable { onSongClick(song, listToShow) },
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    if (showAlbumArt) {
+                                        SongAlbumArt(song = song, size = 48.dp)
+                                        Spacer(modifier = Modifier.width(10.dp))
+                                    }
+                                    Column {
+                                        Text(
+                                            text = song.title,
+                                            color = if (isPlaying) MaterialTheme.colorScheme.primary else Color.Unspecified,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Text(song.artist)
+                                        if (showPath) {
+                                            Text(
+                                                text = song.path,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = if (isDark) Color(0xFFBDBDBD) else Color(
+                                                    0xFF555555
+                                                )
+                                            )
+                                        }
+                                    }
                                 }
-                                Row {
-                                    Button(onClick = {
-                                        onReorderQueue(
-                                            index,
-                                            index - 1
-                                        )
-                                    }) { Text("↑") }
-                                    Button(onClick = {
-                                        onReorderQueue(
-                                            index,
-                                            index + 1
-                                        )
-                                    }) { Text("↓") }
+
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    if (song.duration > 0L) {
+                                        Text(formatDuration(song.duration))
+                                    }
+                                    Spacer(modifier = Modifier.width(3.dp))
+                                    val isFavorite = favoriteIds.contains(song.id)
                                     ActionIconButton(
-                                        drawableRes = R.drawable.icon_remove,
-                                        contentDescription = if (language == LanguageManager.LANG_ZH) "从列表移除" else "Remove from queue",
-                                        onClick = { onRemoveFromQueue(song.id) }
+                                        drawableRes = if (isFavorite) {
+                                            R.drawable.icon_add_favorite
+                                        } else {
+                                            R.drawable.icon_delete_favorite
+                                        },
+                                        contentDescription = when {
+                                            isFavorite && language == LanguageManager.LANG_ZH -> "取消收藏"
+                                            isFavorite -> "Remove from favorites"
+                                            language == LanguageManager.LANG_ZH -> "收藏"
+                                            else -> "Add to favorites"
+                                        },
+                                        onClick = { onToggleFavorite(song) },
+                                        buttonSize = 40.dp,
+                                        iconSize = 28.dp,
+                                        iconTint = if (isFavorite) Color.Red else Color.White
                                     )
-                                    Text(formatDuration(song.duration))
                                 }
                             }
                         }
@@ -830,7 +866,7 @@ fun YMusicScreen(
                             Row(
                                 modifier = Modifier
                                     .weight(1f)
-                                    .clickable { onSongClick(song) },
+                                    .clickable { onSongClick(song, listToShow) },
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 if (showAlbumArt) {
@@ -1151,7 +1187,7 @@ class MainActivity : ComponentActivity() {
                         },
                         onAddExcludedFolder = { viewModel.addExcludedFolder(it) },
                         onRemoveExcludedFolder = { viewModel.removeExcludedFolder(it) },
-                        onSongClick = { song -> playSong(song) },
+                        onSongClick = { song, list -> playSong(song, list) },
                         onToggleFavorite = { viewModel.toggleFavorite(it) },
                         onAddToPlaylist = { name, song -> viewModel.addSongToPlaylist(name, song) },
                         onPlayPauseClick = {
@@ -1248,9 +1284,8 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun playSong(song: Song) {
+    private fun playSong(song: Song, list: List<Song>) {
         if (song.id < 0L) return
-        val list = viewModel.songs.value
         val index = list.indexOfFirst { it.id == song.id }
         if (index < 0) return
 
