@@ -71,6 +71,7 @@ class MusicService : Service() {
             setSessionActivity(createSessionActivityPendingIntent())
             setCallback(object : MediaSessionCompat.Callback() {
                 override fun onPlay() {
+                    requestAudioFocus()
                     player.play()
                     updatePlaybackState()
                 }
@@ -153,12 +154,21 @@ class MusicService : Service() {
         if (audioFocusRequest != null) return
 
         val listener = AudioManager.OnAudioFocusChangeListener { changeType ->
-            if (changeType == AudioManager.AUDIOFOCUS_LOSS ||
-                changeType == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT
-            ) {
-                player.pause()
-                updatePlaybackState()
-                updateNotification()
+            when (changeType) {
+                AudioManager.AUDIOFOCUS_LOSS -> {
+                    player.pause()
+                    updatePlaybackState()
+                    updateNotification()
+                    // Permanent loss: release the request so the next manual resume
+                    // re-requests focus. Otherwise the app keeps playing without
+                    // holding focus and later interruptions are never delivered.
+                    abandonAudioFocus()
+                }
+                AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
+                    player.pause()
+                    updatePlaybackState()
+                    updateNotification()
+                }
             }
         }
 
@@ -223,6 +233,7 @@ class MusicService : Service() {
             player.setMediaItem(item)
             player.prepare()
             if (autoSeekMs > 0L) player.seekTo(autoSeekMs)
+            requestAudioFocus()
             player.play()
             mediaSession?.setMetadata(buildMediaMetadata(song))
             updatePlaybackState()
@@ -286,6 +297,7 @@ class MusicService : Service() {
         if (player.isPlaying) {
             player.pause()
         } else {
+            requestAudioFocus()
             player.play()
         }
         updatePlaybackState()
