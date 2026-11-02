@@ -39,6 +39,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
@@ -53,6 +54,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -61,6 +63,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
@@ -75,6 +79,7 @@ import com.example.musicplayer.data.Song
 import com.example.musicplayer.service.MusicService
 import com.example.musicplayer.ui.MusicViewModel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -144,6 +149,13 @@ fun YMusicScreen(
     var localVolume by remember { mutableStateOf(volume) }
     var excludedExpanded by remember { mutableStateOf(false) }
 
+    val scrollState = rememberScrollState()
+    val scope = rememberCoroutineScope()
+    val scrollContentTopY = remember { mutableStateOf(0f) }
+    val scrollViewportHeight = remember { mutableStateOf(0f) }
+    val songOffsets = remember { mutableMapOf<Long, Float>() }
+    val songRowHeights = remember { mutableMapOf<Long, Float>() }
+
     val playingHighlight =
         MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.22f else 0.12f)
 
@@ -206,7 +218,9 @@ fun YMusicScreen(
         "album" -> selectedAlbum ?: if (language == LanguageManager.LANG_ZH) "专辑" else "Albums"
         "artist" -> selectedArtist ?: if (language == LanguageManager.LANG_ZH) "歌手" else "Artists"
         "queue" -> if (language == LanguageManager.LANG_ZH) "播放列表" else "Playlists"
-        "playlist" -> selectedPlaylistName ?: if (language == LanguageManager.LANG_ZH) "播放列表" else "Playlists"
+        "playlist" -> selectedPlaylistName
+            ?: if (language == LanguageManager.LANG_ZH) "播放列表" else "Playlists"
+
         else -> if (language == LanguageManager.LANG_ZH) "全部" else "All"
     }
 
@@ -250,10 +264,10 @@ fun YMusicScreen(
                     )
                     Spacer(modifier = Modifier.width(3.dp))
                     ActionIconButton(
-                        drawableRes = R.drawable.icon_scan,
+                        drawableRes = R.drawable.icon_scan_new,
                         contentDescription = if (language == LanguageManager.LANG_ZH) "扫描" else "Scan",
                         onClick = onScanClick,
-                        iconSize = 24.dp,
+                        iconSize = 30.dp,
                         iconTint = Color.White
                     )
                     Spacer(modifier = Modifier.width(3.dp))
@@ -335,7 +349,11 @@ fun YMusicScreen(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
+                    .onGloballyPositioned { coords ->
+                        scrollContentTopY.value = coords.positionInRoot().y
+                        scrollViewportHeight.value = coords.size.height.toFloat()
+                    }
+                    .verticalScroll(scrollState)
             ) {
 
                 if (showSettings) {
@@ -460,9 +478,6 @@ fun YMusicScreen(
                         selected = selectedTab == "favorite",
                         onClick = { selectedTab = "favorite" }
                     )
-//                Button(onClick = {
-//                    selectedTab = "recent"
-//                }) { Text(if (language == LanguageManager.LANG_ZH) "最近" else "Recent") }
                     TabButton(
                         text = if (language == LanguageManager.LANG_ZH) "专辑" else "Albums",
                         selected = selectedTab == "album",
@@ -473,13 +488,7 @@ fun YMusicScreen(
                         selected = selectedTab == "artist",
                         onClick = { selectedTab = "artist"; selectedArtist = null }
                     )
-//                Button(onClick = {
-//                    selectedTab = "queue"
-//                }) { Text(if (language == LanguageManager.LANG_ZH) "列表" else "Queue") }
-//            Button(onClick = { selectedTab = "playlist" }) { Text(if (language == LanguageManager.LANG_ZH) "歌单" else "Playlists") }
                 }
-
-//            Text(if (language == LanguageManager.LANG_ZH) "当前模式：${playMode.name}" else "Mode: ${playMode.name}")
 
                 OutlinedTextField(
                     value = searchText,
@@ -581,7 +590,9 @@ fun YMusicScreen(
                     ActionIconButton(
                         drawableRes = R.drawable.icon_playing_list,
                         contentDescription = if (language == LanguageManager.LANG_ZH) "当前播放" else "Queue",
-                        onClick = { selectedTab = if (queue.isEmpty()) "all" else "queue" },
+                        onClick = {
+                            selectedTab = if (queue.isEmpty()) "all" else "queue"
+                        },
                         buttonSize = 24.dp,
                         iconSize = 16.dp,
                         modifier = Modifier.align(Alignment.CenterEnd)
@@ -615,30 +626,6 @@ fun YMusicScreen(
                         iconTint = Color.White
                     )
                 }
-
-//        Row(
-//            modifier = Modifier
-//                .fillMaxWidth()
-//                .padding(top = 8.dp),
-//            verticalAlignment = Alignment.CenterVertically
-//        ) {
-//            OutlinedTextField(
-//                value = playlistNameInput,
-//                onValueChange = { playlistNameInput = it },
-//                modifier = Modifier.weight(1f),
-//                placeholder = { Text(if (language == LanguageManager.LANG_ZH) "新歌单名称" else "New playlist name") }
-//            )
-//            Button(
-//                onClick = {
-//                    if (playlistNameInput.isNotBlank()) {
-//                        onCreatePlaylist(playlistNameInput)
-//                        playlistNameInput = ""
-//                    }
-//                }
-//            ) {
-//                Text(if (language == LanguageManager.LANG_ZH) "创建" else "Create")
-//            }
-//        }
 
                 if (excludedFolders.isNotEmpty()) {
                     Row(
@@ -716,7 +703,7 @@ fun YMusicScreen(
                             }
                         }
                     }
-                    return
+                    return@Column
                 }
 
                 if (selectedTab == "album" && selectedAlbum == null) {
@@ -738,7 +725,7 @@ fun YMusicScreen(
                             }
                         }
                     }
-                    return
+                    return@Column
                 }
 
                 if (selectedTab == "artist" && selectedArtist == null) {
@@ -757,7 +744,7 @@ fun YMusicScreen(
                             }
                         }
                     }
-                    return
+                    return@Column
                 }
 
                 if (selectedTab == "queue") {
@@ -773,7 +760,12 @@ fun YMusicScreen(
                                         color = if (isPlaying) playingHighlight else Color.Transparent,
                                         shape = RoundedCornerShape(8.dp)
                                     )
-                                    .padding(horizontal = 8.dp, vertical = 8.dp),
+                                    .padding(horizontal = 8.dp, vertical = 8.dp)
+                                    .onGloballyPositioned { coords ->
+                                        songOffsets[song.id] =
+                                            coords.positionInRoot().y - scrollContentTopY.value + scrollState.value
+                                        songRowHeights[song.id] = coords.size.height.toFloat()
+                                    },
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
@@ -835,7 +827,7 @@ fun YMusicScreen(
                             }
                         }
                     }
-                    return
+                    return@Column
                 }
 
                 Column {
@@ -869,7 +861,12 @@ fun YMusicScreen(
                                     color = if (isPlaying) playingHighlight else Color.Transparent,
                                     shape = RoundedCornerShape(8.dp)
                                 )
-                                .padding(horizontal = 8.dp, vertical = 8.dp),
+                                .padding(horizontal = 8.dp, vertical = 8.dp)
+                                .onGloballyPositioned { coords ->
+                                    songOffsets[song.id] =
+                                        coords.positionInRoot().y - scrollContentTopY.value + scrollState.value
+                                    songRowHeights[song.id] = coords.size.height.toFloat()
+                                },
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -939,6 +936,72 @@ fun YMusicScreen(
                             }
                         }
                     }
+                }
+            }
+        }
+
+        if (selectedTab == "all" || selectedTab == "favorite" || selectedTab == "queue") {
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                FloatingActionButton(
+                    onClick = {
+                        currentSong?.let { song ->
+                            if (listToShow.any { it.id == song.id }) {
+                                songOffsets[song.id]?.let { target ->
+                                    val itemHeight = songRowHeights[song.id] ?: 0f
+                                    val viewTop = scrollState.value.toFloat()
+                                    val viewBottom = viewTop + scrollViewportHeight.value
+                                    val itemBottom = target + itemHeight
+                                    val isVisible = itemBottom > viewTop && target < viewBottom
+                                    if (!isVisible) {
+                                        val centered = target - (scrollViewportHeight.value - itemHeight) / 2f
+                                        scope.launch {
+                                            scrollState.animateScrollTo(
+                                                centered.toInt().coerceIn(0, scrollState.maxValue)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Image(
+                        painter = painterResource(R.drawable.icon_location),
+                        contentDescription = if (language == LanguageManager.LANG_ZH) {
+                            "定位到正在播放"
+                        } else {
+                            "Scroll to playing"
+                        },
+                        colorFilter = ColorFilter.tint(Color.White),
+                        modifier = Modifier.size(36.dp),
+                    )
+                }
+                FloatingActionButton(
+                    onClick = {
+                        scope.launch { scrollState.animateScrollTo(0) }
+                    },
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Image(
+                        painter = painterResource(R.drawable.icon_up),
+                        contentDescription = if (language == LanguageManager.LANG_ZH) {
+                            "回到顶部"
+                        } else {
+                            "Scroll to top"
+                        },
+                        colorFilter = ColorFilter.tint(Color.White),
+                        modifier = Modifier.size(36.dp)
+                    )
                 }
             }
         }
