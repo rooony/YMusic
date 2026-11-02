@@ -142,7 +142,7 @@ fun YMusicScreen(
     var showAboutDialog by remember { mutableStateOf(false) }
     var folderToRemove by remember { mutableStateOf<String?>(null) }
     var localVolume by remember { mutableStateOf(volume) }
-    var excludedExpanded by remember { mutableStateOf(true) }
+    var excludedExpanded by remember { mutableStateOf(false) }
 
     val playingHighlight =
         MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.22f else 0.12f)

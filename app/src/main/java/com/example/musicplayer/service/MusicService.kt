@@ -8,6 +8,8 @@ import android.app.Service
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.media.AudioDeviceCallback
+import android.media.AudioDeviceInfo
 import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.media.MediaMetadataRetriever
@@ -47,6 +49,23 @@ class MusicService : Service() {
     private lateinit var audioManager: AudioManager
     private var audioFocusRequest: AudioFocusRequest? = null
 
+    /**
+     * Pauses playback whenever the active Bluetooth audio device is removed
+     * (e.g. the headset/speaker disconnects). Using [AudioManager.registerAudioDeviceCallback]
+     * means no Bluetooth permission is required.
+     */
+    private val audioDeviceCallback = object : AudioDeviceCallback() {
+        override fun onAudioDevicesRemoved(removedDevices: Array<out AudioDeviceInfo>) {
+            val bluetoothRemoved = removedDevices.any {
+                it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
+                        it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO
+            }
+            if (bluetoothRemoved) {
+                pausePlayback()
+            }
+        }
+    }
+
     inner class LocalBinder : Binder() {
         fun getService(): MusicService = this@MusicService
     }
@@ -64,6 +83,7 @@ class MusicService : Service() {
 
         audioManager = getSystemService(AudioManager::class.java)
         requestAudioFocus()
+        audioManager.registerAudioDeviceCallback(audioDeviceCallback, null)
 
         // MediaSessionCompat publishes metadata and playback state to the system
         // (lock screen, notification shade, Bluetooth, Android Auto, ...).
@@ -140,6 +160,7 @@ class MusicService : Service() {
         }
         mediaSession?.release()
         abandonAudioFocus()
+        audioManager.unregisterAudioDeviceCallback(audioDeviceCallback)
         player.release()
         super.onDestroy()
     }
@@ -305,6 +326,14 @@ class MusicService : Service() {
     }
 
     fun isPlaying(): Boolean = player.isPlaying
+
+    private fun pausePlayback() {
+        if (player.isPlaying) {
+            player.pause()
+            updatePlaybackState()
+            updateNotification()
+        }
+    }
 
     fun getCurrentSong(): Song? = if (currentIndex in queue.indices) queue[currentIndex] else null
 
