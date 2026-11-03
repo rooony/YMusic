@@ -280,6 +280,13 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun clearFavorites() {
+        viewModelScope.launch {
+            repository.clearFavorites()
+            refreshFavorites()
+        }
+    }
+
     fun markRecentPlay(song: Song) {
         viewModelScope.launch {
             repository.addRecentPlay(song)

@@ -118,6 +118,7 @@ fun YMusicScreen(
     onRemoveExcludedFolder: (String) -> Unit,
     onSongClick: (Song, List<Song>) -> Unit,
     onToggleFavorite: (Song) -> Unit,
+    onClearFavorites: () -> Unit,
     onAddToPlaylist: (String, Song) -> Unit,
     onPlayPauseClick: () -> Unit,
     onNextClick: () -> Unit,
@@ -145,6 +146,7 @@ fun YMusicScreen(
     var selectedPlaylistName by remember { mutableStateOf<String?>(null) }
     var showSettings by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
+    var showClearFavoritesDialog by remember { mutableStateOf(false) }
     var folderToRemove by remember { mutableStateOf<String?>(null) }
     var localVolume by remember { mutableStateOf(volume) }
     var excludedExpanded by remember { mutableStateOf(false) }
@@ -339,6 +341,39 @@ fun YMusicScreen(
                     },
                     dismissButton = {
                         TextButton(onClick = { folderToRemove = null }) {
+                            Text(if (language == LanguageManager.LANG_ZH) "取消" else "Cancel")
+                        }
+                    }
+                )
+            }
+
+            if (showClearFavoritesDialog) {
+                AlertDialog(
+                    onDismissRequest = { showClearFavoritesDialog = false },
+                    title = {
+                        Text(if (language == LanguageManager.LANG_ZH) "清空收藏" else "Clear favorites")
+                    },
+                    text = {
+                        Text(
+                            if (language == LanguageManager.LANG_ZH) {
+                                "确定要删除全部已收藏歌曲吗？"
+                            } else {
+                                "Remove all favorite songs?"
+                            }
+                        )
+                    },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                onClearFavorites()
+                                showClearFavoritesDialog = false
+                            }
+                        ) {
+                            Text(if (language == LanguageManager.LANG_ZH) "删除" else "Remove")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showClearFavoritesDialog = false }) {
                             Text(if (language == LanguageManager.LANG_ZH) "取消" else "Cancel")
                         }
                     }
@@ -673,11 +708,25 @@ fun YMusicScreen(
                     }
                 }
 
-                Text(
-                    text = "$listTitle (${listToShow.size})",
-                    modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
-                    fontWeight = FontWeight.Bold
-                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp, bottom = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "$listTitle (${listToShow.size})",
+                        modifier = Modifier.weight(1f),
+                        fontWeight = FontWeight.Bold
+                    )
+                    if (selectedTab == "favorite" && favoriteIds.isNotEmpty()) {
+                        TextButton(onClick = { showClearFavoritesDialog = true }) {
+                            Text(
+                                if (language == LanguageManager.LANG_ZH) "清空收藏" else "Clear favorites"
+                            )
+                        }
+                    }
+                }
 
                 if (selectedTab == "playlist") {
                     if (playlists.isEmpty()) {
@@ -1262,6 +1311,7 @@ class MainActivity : ComponentActivity() {
                         onRemoveExcludedFolder = { viewModel.removeExcludedFolder(it) },
                         onSongClick = { song, list -> playSong(song, list) },
                         onToggleFavorite = { viewModel.toggleFavorite(it) },
+                        onClearFavorites = { viewModel.clearFavorites() },
                         onAddToPlaylist = { name, song -> viewModel.addSongToPlaylist(name, song) },
                         onPlayPauseClick = {
                             if (currentSong == null && songs.isNotEmpty()) {

@@ -13,6 +13,9 @@ interface FavoriteSongDao {
     @Query("DELETE FROM favorite_songs WHERE songId = :songId")
     suspend fun removeFavorite(songId: Long)
 
+    @Query("DELETE FROM favorite_songs")
+    suspend fun clearFavorites()
+
     @Query("SELECT songId FROM favorite_songs")
     suspend fun getFavoriteIds(): List<Long>
 

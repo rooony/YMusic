@@ -74,6 +74,10 @@ class SongRepository(
         return favoriteDao.getFavoriteIds()
     }
 
+    suspend fun clearFavorites() {
+        favoriteDao.clearFavorites()
+    }
+
     suspend fun addRecentPlay(song: Song) {
         recentDao.insertRecent(
             RecentSong(
