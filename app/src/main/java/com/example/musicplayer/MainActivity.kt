@@ -56,6 +56,7 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -157,6 +158,38 @@ fun YMusicScreen(
     val scrollViewportHeight = remember { mutableStateOf(0f) }
     val songOffsets = remember { mutableMapOf<Long, Float>() }
     val songRowHeights = remember { mutableMapOf<Long, Float>() }
+    val albumOffsets = remember { mutableMapOf<String, Float>() }
+    val albumRowHeights = remember { mutableMapOf<String, Float>() }
+    var scrollToAlbum by remember { mutableStateOf<String?>(null) }
+    val artistOffsets = remember { mutableMapOf<String, Float>() }
+    val artistRowHeights = remember { mutableMapOf<String, Float>() }
+    var scrollToArtist by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(scrollToAlbum) {
+        val albumName = scrollToAlbum ?: return@LaunchedEffect
+        // Wait one frame so the album list is laid out and scroll bounds are updated.
+        withFrameNanos { }
+        val offset = albumOffsets[albumName]
+        if (offset != null) {
+            val height = albumRowHeights[albumName] ?: 0f
+            val centered = offset - (scrollViewportHeight.value - height) / 2f
+            scrollState.animateScrollTo(centered.toInt().coerceIn(0, scrollState.maxValue))
+        }
+        scrollToAlbum = null
+    }
+
+    LaunchedEffect(scrollToArtist) {
+        val artistName = scrollToArtist ?: return@LaunchedEffect
+        // Wait one frame so the artist list is laid out and scroll bounds are updated.
+        withFrameNanos { }
+        val offset = artistOffsets[artistName]
+        if (offset != null) {
+            val height = artistRowHeights[artistName] ?: 0f
+            val centered = offset - (scrollViewportHeight.value - height) / 2f
+            scrollState.animateScrollTo(centered.toInt().coerceIn(0, scrollState.maxValue))
+        }
+        scrollToArtist = null
+    }
 
     val playingHighlight =
         MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.22f else 0.12f)
@@ -714,9 +747,26 @@ fun YMusicScreen(
                         .padding(top = 12.dp, bottom = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    val isBackableDetail =
+                        (selectedTab == "album" && selectedAlbum != null) ||
+                                (selectedTab == "artist" && selectedArtist != null)
                     Text(
-                        text = "$listTitle (${listToShow.size})",
-                        modifier = Modifier.weight(1f),
+                        text = if (isBackableDetail) {
+                            "← $listTitle (${listToShow.size})"
+                        } else {
+                            "$listTitle (${listToShow.size})"
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable(enabled = isBackableDetail) {
+                                if (selectedTab == "album") {
+                                    scrollToAlbum = selectedAlbum
+                                    selectedAlbum = null
+                                } else if (selectedTab == "artist") {
+                                    scrollToArtist = selectedArtist
+                                    selectedArtist = null
+                                }
+                            },
                         fontWeight = FontWeight.Bold
                     )
                     if (selectedTab == "favorite" && favoriteIds.isNotEmpty()) {
@@ -762,6 +812,11 @@ fun YMusicScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(vertical = 8.dp)
+                                    .onGloballyPositioned { coords ->
+                                        albumOffsets[album.name] =
+                                            coords.positionInRoot().y - scrollContentTopY.value + scrollState.value
+                                        albumRowHeights[album.name] = coords.size.height.toFloat()
+                                    }
                                     .clickable { selectedAlbum = album.name },
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
@@ -784,6 +839,11 @@ fun YMusicScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(vertical = 8.dp)
+                                    .onGloballyPositioned { coords ->
+                                        artistOffsets[artist.name] =
+                                            coords.positionInRoot().y - scrollContentTopY.value + scrollState.value
+                                        artistRowHeights[artist.name] = coords.size.height.toFloat()
+                                    }
                                     .clickable { selectedArtist = artist.name },
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
@@ -1052,6 +1112,33 @@ fun YMusicScreen(
                         modifier = Modifier.size(36.dp)
                     )
                 }
+            }
+        }
+
+        if ((selectedTab == "album" && selectedAlbum == null) ||
+            (selectedTab == "artist" && selectedArtist == null)
+        ) {
+            FloatingActionButton(
+                onClick = {
+                    scope.launch { scrollState.animateScrollTo(0) }
+                },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(16.dp)
+                    .size(36.dp)
+            ) {
+                Image(
+                    painter = painterResource(R.drawable.icon_up),
+                    contentDescription = if (language == LanguageManager.LANG_ZH) {
+                        "回到顶部"
+                    } else {
+                        "Scroll to top"
+                    },
+                    colorFilter = ColorFilter.tint(Color.White),
+                    modifier = Modifier.size(36.dp)
+                )
             }
         }
 
