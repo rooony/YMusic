@@ -29,7 +29,6 @@ import kotlinx.coroutines.withContext
 import java.text.Collator
 import java.util.Locale
 
-private val nameCollator: Collator = Collator.getInstance(Locale.CHINA)
 private const val MIN_LOADING_MS = 400L
 
 class MusicViewModel(application: Application) : AndroidViewModel(application) {
@@ -48,6 +47,9 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _filteredSongs = MutableStateFlow<List<Song>>(emptyList())
     val filteredSongs: StateFlow<List<Song>> = _filteredSongs.asStateFlow()
+
+    private val _favoriteSongs = MutableStateFlow<List<Song>>(emptyList())
+    val favoriteSongs: StateFlow<List<Song>> = _favoriteSongs.asStateFlow()
 
     private val _currentSong = MutableStateFlow<Song?>(null)
     val currentSong: StateFlow<Song?> = _currentSong.asStateFlow()
@@ -121,8 +123,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             var loadedOnce = false
             repository.getAllSongs().collect { list ->
                 _songs.value = list
-                updateAlbums(list)
-                updateArtists(list)
+                updateDerived(list)
                 if (!loadedOnce) {
                     loadedOnce = true
                     val remaining = MIN_LOADING_MS - (SystemClock.elapsedRealtime() - startedAt)
@@ -146,6 +147,18 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             }
                 .flowOn(Dispatchers.Default)
                 .collect { _filteredSongs.value = it }
+        }
+
+        viewModelScope.launch {
+            combine(_songs, _favoriteIds) { songs, favIds ->
+                if (favIds.isEmpty()) {
+                    emptyList()
+                } else {
+                    songs.filter { favIds.contains(it.id) }
+                }
+            }
+                .flowOn(Dispatchers.Default)
+                .collect { _favoriteSongs.value = it }
         }
 
         viewModelScope.launch {
@@ -284,8 +297,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 repository.scanAndSaveSongs()
             }
             _songs.value = result
-            updateAlbums(result)
-            updateArtists(result)
+            updateDerived(result)
             refreshFavorites()
             refreshRecent()
             refreshExcludedFolders()
@@ -387,24 +399,27 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     fun getAlbumArtManager(): AlbumArtManager = albumArtManager
 
-    private fun updateAlbums(list: List<Song>) {
-        val map = list.groupBy { it.album }
-        _albums.value = map.map { (albumName, songsInAlbum) ->
-            AlbumInfo(
-                name = albumName,
-                artist = songsInAlbum.firstOrNull()?.artist ?: "Unknown Artist",
-                count = songsInAlbum.size
-            )
-        }.sortedWith { a, b -> nameCollator.compare(a.name, b.name) }
-    }
-
-    private fun updateArtists(list: List<Song>) {
-        val map = list.groupBy { it.artist }
-        _artists.value = map.map { (artistName, artistSongs) ->
-            ArtistInfo(
-                name = artistName,
-                count = artistSongs.size
-            )
-        }.sortedWith { a, b -> nameCollator.compare(a.name, b.name) }
+    private suspend fun updateDerived(list: List<Song>) {
+        val (albums, artists) = withContext(Dispatchers.Default) {
+            val collator = Collator.getInstance(Locale.CHINA)
+            val albumMap = list.groupBy { it.album }
+            val albums = albumMap.map { (albumName, songsInAlbum) ->
+                AlbumInfo(
+                    name = albumName,
+                    artist = songsInAlbum.firstOrNull()?.artist ?: "Unknown Artist",
+                    count = songsInAlbum.size
+                )
+            }.sortedWith { a, b -> collator.compare(a.name, b.name) }
+            val artistMap = list.groupBy { it.artist }
+            val artists = artistMap.map { (artistName, artistSongs) ->
+                ArtistInfo(
+                    name = artistName,
+                    count = artistSongs.size
+                )
+            }.sortedWith { a, b -> collator.compare(a.name, b.name) }
+            albums to artists
+        }
+        _albums.value = albums
+        _artists.value = artists
     }
 }

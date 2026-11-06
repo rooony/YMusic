@@ -56,6 +56,7 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -80,7 +81,11 @@ import com.example.musicplayer.data.Song
 import com.example.musicplayer.service.MusicService
 import com.example.musicplayer.ui.MusicViewModel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
+
+private const val PAGE_SIZE = 50
+private const val LOAD_MORE_THRESHOLD = 300
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -92,6 +97,7 @@ fun YMusicScreen(
     currentSong: Song?,
     isPlaying: Boolean,
     favoriteIds: Set<Long>,
+    favoriteSongs: List<Song>,
     recentSongs: List<Song>,
     searchText: String,
     excludedFolders: List<String>,
@@ -149,6 +155,7 @@ fun YMusicScreen(
     var folderToRemove by remember { mutableStateOf<String?>(null) }
     var excludedExpanded by remember { mutableStateOf(true) }
     var localVolume by remember { mutableStateOf(volume) }
+    var visibleCount by remember { mutableStateOf(PAGE_SIZE) }
 
     val scrollState = rememberScrollState()
     val scope = rememberCoroutineScope()
@@ -195,7 +202,7 @@ fun YMusicScreen(
     val listToShow = if (isSearching) {
         filteredSongs
     } else when (selectedTab) {
-        "favorite" -> songs.filter { favoriteIds.contains(it.id) }
+        "favorite" -> favoriteSongs
         "recent" -> recentSongs
         "album" -> {
             if (selectedAlbum == null) {
@@ -245,6 +252,29 @@ fun YMusicScreen(
         }
 
         else -> filteredSongs
+    }
+
+    val shouldPaginate = !isSearching && selectedTab == "all"
+    val displayedList = if (shouldPaginate) listToShow.take(visibleCount) else listToShow
+
+    LaunchedEffect(selectedTab, isSearching) {
+        visibleCount = PAGE_SIZE
+    }
+
+    LaunchedEffect(selectedTab, isSearching, listToShow.size) {
+        if (!shouldPaginate) return@LaunchedEffect
+        val total = listToShow.size
+        snapshotFlow {
+            val max = scrollState.maxValue
+            val current = scrollState.value
+            max > 0 && max - current < LOAD_MORE_THRESHOLD
+        }
+            .distinctUntilChanged()
+            .collect { nearBottom ->
+                if (nearBottom && visibleCount < total) {
+                    visibleCount = (visibleCount + PAGE_SIZE).coerceAtMost(total)
+                }
+            }
     }
 
     val listTitle = if (isSearching) {
@@ -941,7 +971,7 @@ fun YMusicScreen(
                 }
 
                 Column {
-                    listToShow.forEachIndexed { _, song ->
+                    displayedList.forEachIndexed { _, song ->
                         if (song.id == -1L) {
                             Row(
                                 modifier = Modifier
@@ -1349,6 +1379,7 @@ class MainActivity : ComponentActivity() {
             val artists by viewModel.artists.collectAsStateWithLifecycle()
             val currentSong by viewModel.currentSong.collectAsStateWithLifecycle()
             val favoriteIds by viewModel.favoriteIds.collectAsStateWithLifecycle()
+            val favoriteSongs by viewModel.favoriteSongs.collectAsStateWithLifecycle()
             val recentSongs by viewModel.recentSongs.collectAsStateWithLifecycle()
             val searchText by viewModel.searchText.collectAsStateWithLifecycle()
             val excludedFolders by viewModel.excludedFolders.collectAsStateWithLifecycle()
@@ -1397,6 +1428,7 @@ class MainActivity : ComponentActivity() {
                         currentSong = currentSong,
                         isPlaying = isPlaying,
                         favoriteIds = favoriteIds,
+                        favoriteSongs = favoriteSongs,
                         recentSongs = recentSongs,
                         searchText = searchText,
                         excludedFolders = excludedFolders,
