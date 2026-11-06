@@ -1,11 +1,12 @@
 package com.example.musicplayer.data
 
-import androidx.room.Entity
-import androidx.room.PrimaryKey
-
-@Entity(tableName = "songs")
+/**
+ * A song scanned from the device's media store. Songs are not persisted in the
+ * database: the full list is rescanned from disk on every app launch and lives
+ * only in memory for the current session.
+ */
 data class Song(
-    @PrimaryKey val id: Long,
+    val id: Long,
     val title: String,
     val artist: String,
     val album: String,

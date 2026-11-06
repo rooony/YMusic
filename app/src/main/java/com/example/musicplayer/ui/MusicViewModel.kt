@@ -122,26 +122,6 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         viewModelScope.launch {
-            val startedAt = SystemClock.elapsedRealtime()
-            var loadedOnce = false
-            repository.getAllSongs().collect { list ->
-                _songs.value = list
-                updateDerived(list)
-                // An empty first emission usually means the initial scan has not
-                // run yet (fresh install); keep the loading gate up until a
-                // non-empty list arrives or the scan finishes empty.
-                if (!loadedOnce && list.isNotEmpty()) {
-                    loadedOnce = true
-                    val remaining = MIN_LOADING_MS - (SystemClock.elapsedRealtime() - startedAt)
-                    if (remaining > 0) delay(remaining)
-                }
-                if (list.isNotEmpty()) {
-                    _isLoading.value = false
-                }
-            }
-        }
-
-        viewModelScope.launch {
             combine(_songs, _searchText) { songs, query ->
                 if (query.isBlank()) {
                     songs
@@ -290,22 +270,15 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * Called on app startup. If the database has no songs yet, runs a scan and
-     * saves the result (loading follows via the Room flow and the manual update
-     * in [performScan]). If the database already has data, nothing runs here:
-     * the list is read from the database by the flow collected in init, so the
-     * startup path does only a cheap COUNT query.
+     * Called on app startup (once storage permission is granted). Songs are no
+     * longer persisted: the full list is scanned from disk on every launch and
+     * kept in memory for the session.
      */
     fun initialize() {
-        viewModelScope.launch {
-            val count = withContext(Dispatchers.IO) { repository.getSongCount() }
-            if (count == 0) {
-                performScan()
-            }
-        }
+        viewModelScope.launch { performScan() }
     }
 
-    /** User-initiated scan: replaces the whole song list in the database. */
+    /** User-initiated scan: rescans the disk and replaces the in-memory list. */
     fun refreshSongs() {
         viewModelScope.launch { performScan() }
     }
@@ -318,19 +291,24 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private suspend fun performScan() {
         _isScanning.value = true
         try {
-            // Runs on Dispatchers.IO; the DB write is a single atomic swap, and
-            // the songs flow in init picks the new list up from Room directly.
-            withContext(Dispatchers.IO) {
-                repository.addDefaultExcludedFoldersIfMissing()
-                repository.scanAndSaveSongs()
+            val startedAt = SystemClock.elapsedRealtime()
+            // Scanning runs on Dispatchers.IO inside the repository. The result
+            // is not persisted anywhere; it lives in memory for this session.
+            repository.addDefaultExcludedFoldersIfMissing()
+            val songs = repository.scanSongs()
+            _songs.value = songs
+            updateDerived(songs)
+            if (songs.isNotEmpty()) {
+                val remaining = MIN_LOADING_MS - (SystemClock.elapsedRealtime() - startedAt)
+                if (remaining > 0) delay(remaining)
             }
             refreshFavorites()
             refreshRecent()
             refreshExcludedFolders()
         } finally {
             _isScanning.value = false
-            // The scan is the terminal event for a first (empty-result) start:
-            // whatever the Room flow emitted, loading must end here too.
+            // The scan is the terminal event for startup: loading ends here
+            // even if no songs were found.
             _isLoading.value = false
         }
     }

@@ -4,24 +4,33 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [
-        Song::class,
         FavoriteSong::class,
         RecentSong::class,
         ExcludedFolder::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class SongDatabase : RoomDatabase() {
-    abstract fun songDao(): SongDao
     abstract fun favoriteSongDao(): FavoriteSongDao
     abstract fun recentSongDao(): RecentSongDao
     abstract fun excludedFolderDao(): ExcludedFolderDao
 
     companion object {
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Songs are no longer persisted; they are rescanned from disk on
+                // every launch. Drop the table but keep favorites, recents and
+                // excluded folders.
+                db.execSQL("DROP TABLE IF EXISTS songs")
+            }
+        }
+
         @Volatile
         private var INSTANCE: SongDatabase? = null
 
@@ -32,7 +41,7 @@ abstract class SongDatabase : RoomDatabase() {
                     SongDatabase::class.java,
                     "music_database"
                 )
-                    .fallbackToDestructiveMigration()
+                    .addMigrations(MIGRATION_3_4)
                     .build()
                 INSTANCE = instance
                 instance

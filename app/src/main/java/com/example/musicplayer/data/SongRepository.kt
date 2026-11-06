@@ -3,35 +3,26 @@ package com.example.musicplayer.data
 import android.content.ContentUris
 import android.content.Context
 import android.provider.MediaStore
-import androidx.room.withTransaction
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class SongRepository(
     private val context: Context,
     private val database: SongDatabase
 ) {
-    private val dao = database.songDao()
     private val favoriteDao = database.favoriteSongDao()
     private val recentDao = database.recentSongDao()
     private val excludedFolderDao = database.excludedFolderDao()
 
-    fun getAllSongs(): Flow<List<Song>> = dao.getAllSongs()
-
-    suspend fun scanAndSaveSongs(): List<Song> {
+    /**
+     * Scans the device's media store and returns every song, excluding songs
+     * under any excluded folder. The result is not persisted: the caller keeps
+     * it in memory for the current session only.
+     */
+    suspend fun scanSongs(): List<Song> = withContext(Dispatchers.IO) {
         val excludedFolders = getExcludedFolders()
-        val songs = readLocalSongs(excludedFolders)
-        // Delete the old rows and insert the new ones in one transaction, so
-        // observers of the songs table see a single atomic swap instead of an
-        // intermediate empty list (which would blank the UI and trigger a
-        // second full recompute).
-        database.withTransaction {
-            dao.clearAll()
-            dao.insertSongs(songs)
-        }
-        return songs
+        readLocalSongs(excludedFolders)
     }
-
-    suspend fun getSongCount(): Int = dao.getSongCount()
 
     suspend fun addExcludedFolder(path: String) {
         val clean = normalizePath(path)
@@ -163,7 +154,9 @@ class SongRepository(
             }
         }
 
-        return result
+        // The DB previously returned the list sorted by title (ORDER BY title
+        // ASC); keep that ordering so the UI looks the same after the switch.
+        return result.sortedWith(compareBy({ it.title }, { it.artist }, { it.id }))
     }
 
     private fun isInExcludedFolder(songPath: String, excludedFolders: List<String>): Boolean {
