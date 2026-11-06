@@ -556,7 +556,7 @@ fun YMusicScreen(
                                             modifier = Modifier
                                                 .fillMaxWidth()
                                                 .padding(vertical = 4.dp),
-                                            verticalAlignment = Alignment.Top
+                                            verticalAlignment = Alignment.CenterVertically
                                         ) {
                                             Text(
                                                 text = folder,
@@ -567,8 +567,7 @@ fun YMusicScreen(
                                             ActionIconButton(
                                                 drawableRes = R.drawable.icon_remove,
                                                 contentDescription = if (language == LanguageManager.LANG_ZH) "删除" else "Remove",
-                                                onClick = { folderToRemove = folder },
-                                                modifier = Modifier.align(Alignment.Top)
+                                                onClick = { folderToRemove = folder }
                                             )
                                         }
                                     }
