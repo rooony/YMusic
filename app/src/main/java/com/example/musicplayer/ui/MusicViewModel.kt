@@ -2,6 +2,7 @@ package com.example.musicplayer.ui
 
 import android.app.Application
 import android.content.Context
+import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.musicplayer.AlbumArtManager
@@ -20,8 +21,16 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.text.Collator
+import java.util.Locale
+
+private val nameCollator: Collator = Collator.getInstance(Locale.CHINA)
+private const val MIN_LOADING_MS = 400L
 
 class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -36,6 +45,9 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _songs = MutableStateFlow<List<Song>>(emptyList())
     val songs: StateFlow<List<Song>> = _songs.asStateFlow()
+
+    private val _filteredSongs = MutableStateFlow<List<Song>>(emptyList())
+    val filteredSongs: StateFlow<List<Song>> = _filteredSongs.asStateFlow()
 
     private val _currentSong = MutableStateFlow<Song?>(null)
     val currentSong: StateFlow<Song?> = _currentSong.asStateFlow()
@@ -97,16 +109,43 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private val _language = MutableStateFlow(settingsManager.getLanguage())
     val language: StateFlow<String> = _language.asStateFlow()
 
+    private val _isLoading = MutableStateFlow(true)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
     private val _isScanning = MutableStateFlow(false)
     val isScanning: StateFlow<Boolean> = _isScanning.asStateFlow()
 
     init {
         viewModelScope.launch {
+            val startedAt = SystemClock.elapsedRealtime()
+            var loadedOnce = false
             repository.getAllSongs().collect { list ->
                 _songs.value = list
                 updateAlbums(list)
                 updateArtists(list)
+                if (!loadedOnce) {
+                    loadedOnce = true
+                    val remaining = MIN_LOADING_MS - (SystemClock.elapsedRealtime() - startedAt)
+                    if (remaining > 0) delay(remaining)
+                }
+                _isLoading.value = false
             }
+        }
+
+        viewModelScope.launch {
+            combine(_songs, _searchText) { songs, query ->
+                if (query.isBlank()) {
+                    songs
+                } else {
+                    songs.filter {
+                        it.title.contains(query, ignoreCase = true) ||
+                                it.artist.contains(query, ignoreCase = true) ||
+                                it.album.contains(query, ignoreCase = true)
+                    }
+                }
+            }
+                .flowOn(Dispatchers.Default)
+                .collect { _filteredSongs.value = it }
         }
 
         viewModelScope.launch {
@@ -216,23 +255,42 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun refreshSongs() {
+    /**
+     * Called on app startup. Reads the songs already in the database; if there are
+     * none, triggers an automatic scan (respecting excluded folders). Otherwise only
+     * cleans up rows whose files no longer exist on disk.
+     */
+    fun initialize() {
         viewModelScope.launch {
-            _isScanning.value = true
-            try {
-                val result = withContext(Dispatchers.IO) {
-                    repository.addDefaultExcludedFoldersIfMissing()
-                    repository.scanAndSaveSongs()
-                }
-                _songs.value = result
-                updateAlbums(result)
-                updateArtists(result)
-                refreshFavorites()
-                refreshRecent()
-                refreshExcludedFolders()
-            } finally {
-                _isScanning.value = false
+            val count = withContext(Dispatchers.IO) { repository.getSongCount() }
+            if (count == 0) {
+                performScan()
+            } else {
+                withContext(Dispatchers.IO) { repository.removeMissingSongs() }
             }
+        }
+    }
+
+    /** User-initiated scan: replaces the whole song list in the database. */
+    fun refreshSongs() {
+        viewModelScope.launch { performScan() }
+    }
+
+    private suspend fun performScan() {
+        _isScanning.value = true
+        try {
+            val result = withContext(Dispatchers.IO) {
+                repository.addDefaultExcludedFoldersIfMissing()
+                repository.scanAndSaveSongs()
+            }
+            _songs.value = result
+            updateAlbums(result)
+            updateArtists(result)
+            refreshFavorites()
+            refreshRecent()
+            refreshExcludedFolders()
+        } finally {
+            _isScanning.value = false
         }
     }
 
@@ -337,7 +395,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 artist = songsInAlbum.firstOrNull()?.artist ?: "Unknown Artist",
                 count = songsInAlbum.size
             )
-        }.sortedBy { it.name }
+        }.sortedWith { a, b -> nameCollator.compare(a.name, b.name) }
     }
 
     private fun updateArtists(list: List<Song>) {
@@ -347,6 +405,6 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 name = artistName,
                 count = artistSongs.size
             )
-        }.sortedBy { it.name }
+        }.sortedWith { a, b -> nameCollator.compare(a.name, b.name) }
     }
 }

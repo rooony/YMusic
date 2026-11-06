@@ -19,4 +19,13 @@ interface SongDao {
 
     @Query("SELECT * FROM songs WHERE id = :id LIMIT 1")
     suspend fun getSongById(id: Long): Song?
+
+    @Query("SELECT COUNT(*) FROM songs")
+    suspend fun getSongCount(): Int
+
+    @Query("SELECT id FROM songs")
+    suspend fun getAllSongIds(): List<Long>
+
+    @Query("DELETE FROM songs WHERE id IN (:ids)")
+    suspend fun deleteSongsByIds(ids: List<Long>)
 }

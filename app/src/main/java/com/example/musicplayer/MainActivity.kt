@@ -86,6 +86,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun YMusicScreen(
     songs: List<Song>,
+    filteredSongs: List<Song>,
     albums: List<AlbumInfo>,
     artists: List<ArtistInfo>,
     currentSong: Song?,
@@ -105,6 +106,7 @@ fun YMusicScreen(
     showAlbumArt: Boolean,
     showPath: Boolean,
     isScanning: Boolean,
+    isLoading: Boolean,
     themeColor: Int,
     language: String,
     onToggleTheme: () -> Unit,
@@ -133,11 +135,7 @@ fun YMusicScreen(
     onPlayModeChange: (PlayMode) -> Unit,
     onLanguageChange: (String) -> Unit,
 ) {
-    val filteredSongs = songs.filter {
-        it.title.contains(searchText, ignoreCase = true) ||
-                it.artist.contains(searchText, ignoreCase = true) ||
-                it.album.contains(searchText, ignoreCase = true)
-    }
+    val isSearching = searchText.isNotBlank()
 
     var selectedTab by remember { mutableStateOf("all") }
     var selectedAlbum by remember { mutableStateOf<String?>(null) }
@@ -149,8 +147,8 @@ fun YMusicScreen(
     var showAboutDialog by remember { mutableStateOf(false) }
     var showClearFavoritesDialog by remember { mutableStateOf(false) }
     var folderToRemove by remember { mutableStateOf<String?>(null) }
+    var excludedExpanded by remember { mutableStateOf(true) }
     var localVolume by remember { mutableStateOf(volume) }
-    var excludedExpanded by remember { mutableStateOf(false) }
 
     val scrollState = rememberScrollState()
     val scope = rememberCoroutineScope()
@@ -194,7 +192,9 @@ fun YMusicScreen(
     val playingHighlight =
         MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.22f else 0.12f)
 
-    val listToShow = when (selectedTab) {
+    val listToShow = if (isSearching) {
+        filteredSongs
+    } else when (selectedTab) {
         "favorite" -> songs.filter { favoriteIds.contains(it.id) }
         "recent" -> recentSongs
         "album" -> {
@@ -247,7 +247,9 @@ fun YMusicScreen(
         else -> filteredSongs
     }
 
-    val listTitle = when (selectedTab) {
+    val listTitle = if (isSearching) {
+        if (language == LanguageManager.LANG_ZH) "搜索" else "Search"
+    } else when (selectedTab) {
         "favorite" -> if (language == LanguageManager.LANG_ZH) "收藏" else "Favorites"
         "recent" -> if (language == LanguageManager.LANG_ZH) "最近" else "Recent"
         "album" -> selectedAlbum ?: if (language == LanguageManager.LANG_ZH) "专辑" else "Albums"
@@ -500,6 +502,78 @@ fun YMusicScreen(
                             Button(onClick = { onLanguageChange(LanguageManager.LANG_ZH) }) { Text("中文") }
                             Button(onClick = { onLanguageChange(LanguageManager.LANG_EN) }) { Text("English") }
                         }
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { excludedExpanded = !excludedExpanded },
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = (if (excludedExpanded) "▼ " else "▶ ") +
+                                        if (language == LanguageManager.LANG_ZH) "已排除目录" else "Excluded folders",
+                                modifier = Modifier.weight(1f),
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        if (excludedExpanded) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                OutlinedTextField(
+                                    value = folderInput,
+                                    onValueChange = { folderInput = it },
+                                    modifier = Modifier.weight(1f),
+                                    placeholder = { Text("/storage/emulated/0/Download") }
+                                )
+                                Spacer(modifier = Modifier.width(3.dp))
+                                ActionIconButton(
+                                    drawableRes = R.drawable.icon_add,
+                                    contentDescription = if (language == LanguageManager.LANG_ZH) "添加" else "Add",
+                                    onClick = {
+                                        if (folderInput.isNotBlank()) {
+                                            onAddExcludedFolder(folderInput)
+                                            folderInput = ""
+                                        }
+                                    },
+                                    buttonSize = 40.dp,
+                                    iconSize = 18.dp,
+                                    iconTint = Color.White
+                                )
+                            }
+
+                            if (excludedFolders.isNotEmpty()) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(bottom = 8.dp)
+                                ) {
+                                    excludedFolders.forEachIndexed { _, folder ->
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(vertical = 4.dp),
+                                            verticalAlignment = Alignment.Top
+                                        ) {
+                                            Text(
+                                                text = folder,
+                                                modifier = Modifier
+                                                    .weight(1f)
+                                                    .padding(end = 8.dp)
+                                            )
+                                            ActionIconButton(
+                                                drawableRes = R.drawable.icon_remove,
+                                                contentDescription = if (language == LanguageManager.LANG_ZH) "删除" else "Remove",
+                                                onClick = { folderToRemove = folder },
+                                                modifier = Modifier.align(Alignment.Top)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -670,86 +744,13 @@ fun YMusicScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    OutlinedTextField(
-                        value = folderInput,
-                        onValueChange = { folderInput = it },
-                        modifier = Modifier.weight(1f),
-                        placeholder = { Text("/storage/emulated/0/Download") }
-                    )
-                    Spacer(modifier = Modifier.width(3.dp))
-                    ActionIconButton(
-                        drawableRes = R.drawable.icon_add,
-                        contentDescription = if (language == LanguageManager.LANG_ZH) "添加" else "Add",
-                        onClick = {
-                            if (folderInput.isNotBlank()) {
-                                onAddExcludedFolder(folderInput)
-                                folderInput = ""
-                            }
-                        },
-                        buttonSize = 40.dp,
-                        iconSize = 18.dp,
-                        iconTint = Color.White
-                    )
-                }
-
-                if (excludedFolders.isNotEmpty()) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 12.dp, bottom = 4.dp)
-                            .clickable { excludedExpanded = !excludedExpanded },
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = (if (excludedExpanded) "▼ " else "▶ ") +
-                                    if (language == LanguageManager.LANG_ZH) "已排除目录" else "Excluded folders",
-                            modifier = Modifier.weight(1f),
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                    if (excludedExpanded) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(bottom = 8.dp)
-                        ) {
-                            excludedFolders.forEachIndexed { _, folder ->
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 4.dp),
-                                    verticalAlignment = Alignment.Top
-                                ) {
-                                    Text(
-                                        text = folder,
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .padding(end = 8.dp)
-                                    )
-                                    ActionIconButton(
-                                        drawableRes = R.drawable.icon_remove,
-                                        contentDescription = if (language == LanguageManager.LANG_ZH) "删除" else "Remove",
-                                        onClick = { folderToRemove = folder },
-                                        modifier = Modifier.align(Alignment.Top)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
                         .padding(top = 12.dp, bottom = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    val isBackableDetail =
+                    val isBackableDetail = !isSearching && (
                         (selectedTab == "album" && selectedAlbum != null) ||
                                 (selectedTab == "artist" && selectedArtist != null)
+                    )
                     Text(
                         text = if (isBackableDetail) {
                             "← $listTitle (${listToShow.size})"
@@ -769,7 +770,7 @@ fun YMusicScreen(
                             },
                         fontWeight = FontWeight.Bold
                     )
-                    if (selectedTab == "favorite" && favoriteIds.isNotEmpty()) {
+                    if (!isSearching && selectedTab == "favorite" && favoriteIds.isNotEmpty()) {
                         TextButton(onClick = { showClearFavoritesDialog = true }) {
                             Text(
                                 if (language == LanguageManager.LANG_ZH) "清空收藏" else "Clear favorites"
@@ -778,7 +779,7 @@ fun YMusicScreen(
                     }
                 }
 
-                if (selectedTab == "playlist") {
+                if (!isSearching && selectedTab == "playlist") {
                     if (playlists.isEmpty()) {
                         Text(if (language == LanguageManager.LANG_ZH) "暂无歌单" else "No playlists yet")
                     } else {
@@ -805,7 +806,7 @@ fun YMusicScreen(
                     return@Column
                 }
 
-                if (selectedTab == "album" && selectedAlbum == null) {
+                if (!isSearching && selectedTab == "album" && selectedAlbum == null) {
                     Column {
                         albums.forEachIndexed { _, album ->
                             Row(
@@ -832,7 +833,7 @@ fun YMusicScreen(
                     return@Column
                 }
 
-                if (selectedTab == "artist" && selectedArtist == null) {
+                if (!isSearching && selectedTab == "artist" && selectedArtist == null) {
                     Column {
                         artists.forEachIndexed { _, artist ->
                             Row(
@@ -856,7 +857,7 @@ fun YMusicScreen(
                     return@Column
                 }
 
-                if (selectedTab == "queue") {
+                if (!isSearching && selectedTab == "queue") {
                     if (queue.isEmpty()) {
                         Text(if (language == LanguageManager.LANG_ZH) "暂无播放列表" else "Queue is empty")
                     } else Column {
@@ -1167,6 +1168,28 @@ fun YMusicScreen(
                 }
             }
         }
+
+        if (isLoading) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.45f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Image(
+                        painter = painterResource(R.drawable.icon_loading),
+                        contentDescription = if (language == LanguageManager.LANG_ZH) "加载中" else "Loading",
+                        modifier = Modifier.size(120.dp)
+                    )
+                    Text(
+                        text = if (language == LanguageManager.LANG_ZH) "加载中..." else "Loading...",
+                        color = Color.White,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -1289,7 +1312,7 @@ class MainActivity : ComponentActivity() {
 
     private val permissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-            if (granted) viewModel.refreshSongs()
+            if (granted) viewModel.initialize()
         }
 
     private val serviceConnection = object : ServiceConnection {
@@ -1312,7 +1335,7 @@ class MainActivity : ComponentActivity() {
         LanguageManager.apply(this)
 
         if (hasAudioPermission()) {
-            viewModel.refreshSongs()
+            viewModel.initialize()
         } else {
             permissionLauncher.launch(requiredAudioPermission)
         }
@@ -1321,6 +1344,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val songs by viewModel.songs.collectAsStateWithLifecycle()
+            val filteredSongs by viewModel.filteredSongs.collectAsStateWithLifecycle()
             val albums by viewModel.albums.collectAsStateWithLifecycle()
             val artists by viewModel.artists.collectAsStateWithLifecycle()
             val currentSong by viewModel.currentSong.collectAsStateWithLifecycle()
@@ -1341,7 +1365,18 @@ class MainActivity : ComponentActivity() {
             val showAlbumArt by viewModel.showAlbumArt.collectAsStateWithLifecycle()
             val showPath by viewModel.showPath.collectAsStateWithLifecycle()
             val isScanning by viewModel.isScanning.collectAsStateWithLifecycle()
+            val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
             val isPlaying by viewModel.isPlaying.collectAsStateWithLifecycle()
+
+            // Keep the loading overlay visible until the songs list has actually been
+            // loaded from the database and rendered, not just when the data arrives.
+            var loadingVisible by remember { mutableStateOf(true) }
+            LaunchedEffect(isLoading) {
+                if (!isLoading) {
+                    withFrameNanos { }
+                    loadingVisible = false
+                }
+            }
 
             val colorScheme = if (isDark) {
                 darkColorScheme(primary = Color(themeColor))
@@ -1356,6 +1391,7 @@ class MainActivity : ComponentActivity() {
                 ) {
                     YMusicScreen(
                         songs = songs,
+                        filteredSongs = filteredSongs,
                         albums = albums,
                         artists = artists,
                         currentSong = currentSong,
@@ -1375,6 +1411,7 @@ class MainActivity : ComponentActivity() {
                         showAlbumArt = showAlbumArt,
                         showPath = showPath,
                         isScanning = isScanning,
+                        isLoading = loadingVisible,
                         themeColor = themeColor,
                         language = language,
                         onToggleTheme = { viewModel.toggleTheme() },
