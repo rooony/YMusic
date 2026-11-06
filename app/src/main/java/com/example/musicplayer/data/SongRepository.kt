@@ -3,6 +3,7 @@ package com.example.musicplayer.data
 import android.content.ContentUris
 import android.content.Context
 import android.provider.MediaStore
+import androidx.room.withTransaction
 import kotlinx.coroutines.flow.Flow
 
 class SongRepository(
@@ -19,28 +20,18 @@ class SongRepository(
     suspend fun scanAndSaveSongs(): List<Song> {
         val excludedFolders = getExcludedFolders()
         val songs = readLocalSongs(excludedFolders)
-        dao.clearAll()
-        dao.insertSongs(songs)
+        // Delete the old rows and insert the new ones in one transaction, so
+        // observers of the songs table see a single atomic swap instead of an
+        // intermediate empty list (which would blank the UI and trigger a
+        // second full recompute).
+        database.withTransaction {
+            dao.clearAll()
+            dao.insertSongs(songs)
+        }
         return songs
     }
 
     suspend fun getSongCount(): Int = dao.getSongCount()
-
-    /**
-     * Removes rows whose media entries no longer exist on disk. MediaStore keeps
-     * entries only for files that are present, so comparing stored ids against the
-     * current id set naturally finds stale rows.
-     */
-    suspend fun removeMissingSongs(): Int {
-        val dbIds = dao.getAllSongIds().toSet()
-        if (dbIds.isEmpty()) return 0
-        val onDiskIds = readLocalSongIds()
-        val missing = dbIds - onDiskIds
-        if (missing.isNotEmpty()) {
-            dao.deleteSongsByIds(missing.toList())
-        }
-        return missing.size
-    }
 
     suspend fun addExcludedFolder(path: String) {
         val clean = normalizePath(path)
@@ -172,26 +163,6 @@ class SongRepository(
             }
         }
 
-        return result
-    }
-
-    private fun readLocalSongIds(): Set<Long> {
-        val result = mutableSetOf<Long>()
-        val projection = arrayOf(MediaStore.Audio.Media._ID)
-        val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0"
-        val cursor = context.contentResolver.query(
-            MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
-            projection,
-            selection,
-            null,
-            null
-        )
-        cursor?.use {
-            val idColumn = it.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
-            while (it.moveToNext()) {
-                result.add(it.getLong(idColumn))
-            }
-        }
         return result
     }
 

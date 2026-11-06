@@ -56,7 +56,6 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -81,11 +80,7 @@ import com.example.musicplayer.data.Song
 import com.example.musicplayer.service.MusicService
 import com.example.musicplayer.ui.MusicViewModel
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
-
-private const val PAGE_SIZE = 50
-private const val LOAD_MORE_THRESHOLD = 300
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -155,7 +150,6 @@ fun YMusicScreen(
     var folderToRemove by remember { mutableStateOf<String?>(null) }
     var excludedExpanded by remember { mutableStateOf(true) }
     var localVolume by remember { mutableStateOf(volume) }
-    var visibleCount by remember { mutableStateOf(PAGE_SIZE) }
 
     val scrollState = rememberScrollState()
     val scope = rememberCoroutineScope()
@@ -252,29 +246,6 @@ fun YMusicScreen(
         }
 
         else -> filteredSongs
-    }
-
-    val shouldPaginate = !isSearching && selectedTab == "all"
-    val displayedList = if (shouldPaginate) listToShow.take(visibleCount) else listToShow
-
-    LaunchedEffect(selectedTab, isSearching) {
-        visibleCount = PAGE_SIZE
-    }
-
-    LaunchedEffect(selectedTab, isSearching, listToShow.size) {
-        if (!shouldPaginate) return@LaunchedEffect
-        val total = listToShow.size
-        snapshotFlow {
-            val max = scrollState.maxValue
-            val current = scrollState.value
-            max > 0 && max - current < LOAD_MORE_THRESHOLD
-        }
-            .distinctUntilChanged()
-            .collect { nearBottom ->
-                if (nearBottom && visibleCount < total) {
-                    visibleCount = (visibleCount + PAGE_SIZE).coerceAtMost(total)
-                }
-            }
     }
 
     val listTitle = if (isSearching) {
@@ -971,7 +942,7 @@ fun YMusicScreen(
                 }
 
                 Column {
-                    displayedList.forEachIndexed { _, song ->
+                    listToShow.forEachIndexed { _, song ->
                         if (song.id == -1L) {
                             Row(
                                 modifier = Modifier
@@ -1342,7 +1313,13 @@ class MainActivity : ComponentActivity() {
 
     private val permissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-            if (granted) viewModel.initialize()
+            if (granted) {
+                viewModel.initialize()
+            } else {
+                // Without the permission no songs can ever load; end the loading
+                // gate instead of leaving the overlay up forever.
+                viewModel.markLoadingFinished()
+            }
         }
 
     private val serviceConnection = object : ServiceConnection {

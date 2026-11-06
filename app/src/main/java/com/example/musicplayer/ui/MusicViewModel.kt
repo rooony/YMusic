@@ -14,6 +14,7 @@ import com.example.musicplayer.PlayMode
 import com.example.musicplayer.Playlist
 import com.example.musicplayer.PlaylistManager
 import com.example.musicplayer.SettingsManager
+import com.example.musicplayer.data.RecentSong
 import com.example.musicplayer.data.Song
 import com.example.musicplayer.data.SongDatabase
 import com.example.musicplayer.data.SongRepository
@@ -62,6 +63,8 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _recentSongs = MutableStateFlow<List<Song>>(emptyList())
     val recentSongs: StateFlow<List<Song>> = _recentSongs.asStateFlow()
+
+    private val _recentRaw = MutableStateFlow<List<RecentSong>>(emptyList())
 
     private val _searchText = MutableStateFlow("")
     val searchText: StateFlow<String> = _searchText.asStateFlow()
@@ -124,12 +127,17 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             repository.getAllSongs().collect { list ->
                 _songs.value = list
                 updateDerived(list)
-                if (!loadedOnce) {
+                // An empty first emission usually means the initial scan has not
+                // run yet (fresh install); keep the loading gate up until a
+                // non-empty list arrives or the scan finishes empty.
+                if (!loadedOnce && list.isNotEmpty()) {
                     loadedOnce = true
                     val remaining = MIN_LOADING_MS - (SystemClock.elapsedRealtime() - startedAt)
                     if (remaining > 0) delay(remaining)
                 }
-                _isLoading.value = false
+                if (list.isNotEmpty()) {
+                    _isLoading.value = false
+                }
             }
         }
 
@@ -159,6 +167,19 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             }
                 .flowOn(Dispatchers.Default)
                 .collect { _favoriteSongs.value = it }
+        }
+
+        viewModelScope.launch {
+            combine(_songs, _recentRaw) { songs, recents ->
+                if (recents.isEmpty()) {
+                    emptyList()
+                } else {
+                    val map = songs.associateBy { it.id }
+                    recents.mapNotNull { map[it.songId] }
+                }
+            }
+                .flowOn(Dispatchers.Default)
+                .collect { _recentSongs.value = it }
         }
 
         viewModelScope.launch {
@@ -269,17 +290,17 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * Called on app startup. Reads the songs already in the database; if there are
-     * none, triggers an automatic scan (respecting excluded folders). Otherwise only
-     * cleans up rows whose files no longer exist on disk.
+     * Called on app startup. If the database has no songs yet, runs a scan and
+     * saves the result (loading follows via the Room flow and the manual update
+     * in [performScan]). If the database already has data, nothing runs here:
+     * the list is read from the database by the flow collected in init, so the
+     * startup path does only a cheap COUNT query.
      */
     fun initialize() {
         viewModelScope.launch {
             val count = withContext(Dispatchers.IO) { repository.getSongCount() }
             if (count == 0) {
                 performScan()
-            } else {
-                withContext(Dispatchers.IO) { repository.removeMissingSongs() }
             }
         }
     }
@@ -289,35 +310,42 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch { performScan() }
     }
 
+    /** Ends the startup loading gate (e.g. when storage permission is denied). */
+    fun markLoadingFinished() {
+        _isLoading.value = false
+    }
+
     private suspend fun performScan() {
         _isScanning.value = true
         try {
-            val result = withContext(Dispatchers.IO) {
+            // Runs on Dispatchers.IO; the DB write is a single atomic swap, and
+            // the songs flow in init picks the new list up from Room directly.
+            withContext(Dispatchers.IO) {
                 repository.addDefaultExcludedFoldersIfMissing()
                 repository.scanAndSaveSongs()
             }
-            _songs.value = result
-            updateDerived(result)
             refreshFavorites()
             refreshRecent()
             refreshExcludedFolders()
         } finally {
             _isScanning.value = false
+            // The scan is the terminal event for a first (empty-result) start:
+            // whatever the Room flow emitted, loading must end here too.
+            _isLoading.value = false
         }
     }
 
     fun refreshFavorites() {
         viewModelScope.launch {
-            val ids = repository.getFavoriteSongIds().toSet()
+            val ids = withContext(Dispatchers.IO) { repository.getFavoriteSongIds().toSet() }
             _favoriteIds.value = ids
         }
     }
 
     fun refreshRecent() {
         viewModelScope.launch {
-            val recent = repository.getRecentSongs()
-            val songsMap = _songs.value.associateBy { it.id }
-            _recentSongs.value = recent.mapNotNull { songsMap[it.songId] }
+            val recent = withContext(Dispatchers.IO) { repository.getRecentSongs() }
+            _recentRaw.value = recent
         }
     }
 
