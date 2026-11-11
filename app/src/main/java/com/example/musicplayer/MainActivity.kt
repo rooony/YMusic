@@ -46,6 +46,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -72,6 +73,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -691,7 +693,11 @@ fun YMusicScreen(
                     value = searchText,
                     onValueChange = onSearchChange,
                     modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text(if (language == LanguageManager.LANG_ZH) "搜索歌曲 / 歌手 / 专辑" else "Search song / artist / album") }
+                    placeholder = { Text(if (language == LanguageManager.LANG_ZH) "搜索歌曲 / 歌手 / 专辑" else "Search song / artist / album") },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                    )
                 )
 
                 if (currentSong != null) {
@@ -1301,8 +1307,12 @@ private fun ActionIconButton(
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
     val iconRes = if (pressed && pressedDrawableRes != null) pressedDrawableRes else drawableRes
+    val focusManager = LocalFocusManager.current
     Button(
-        onClick = onClick,
+        onClick = {
+            focusManager.clearFocus()
+            onClick()
+        },
         modifier = modifier.size(buttonSize),
         contentPadding = PaddingValues(0.dp),
         interactionSource = interactionSource
@@ -1380,8 +1390,12 @@ private fun TabButton(
     selected: Boolean,
     onClick: () -> Unit
 ) {
+    val focusManager = LocalFocusManager.current
     Button(
-        onClick = onClick,
+        onClick = {
+            focusManager.clearFocus()
+            onClick()
+        },
         colors = ButtonDefaults.buttonColors(
             containerColor = if (selected) {
                 MaterialTheme.colorScheme.primary
