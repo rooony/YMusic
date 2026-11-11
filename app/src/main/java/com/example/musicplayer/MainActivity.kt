@@ -613,22 +613,22 @@ fun YMusicScreen(
                     TabButton(
                         text = if (language == LanguageManager.LANG_ZH) "全部" else "All",
                         selected = selectedTab == "all",
-                        onClick = { selectedTab = "all" }
+                        onClick = { selectedTab = "all"; onSearchChange("") }
                     )
                     TabButton(
                         text = if (language == LanguageManager.LANG_ZH) "收藏" else "Favorites",
                         selected = selectedTab == "favorite",
-                        onClick = { selectedTab = "favorite" }
+                        onClick = { selectedTab = "favorite"; onSearchChange("") }
                     )
                     TabButton(
                         text = if (language == LanguageManager.LANG_ZH) "专辑" else "Albums",
                         selected = selectedTab == "album",
-                        onClick = { selectedTab = "album"; selectedAlbum = null }
+                        onClick = { selectedTab = "album"; selectedAlbum = null; onSearchChange("") }
                     )
                     TabButton(
                         text = if (language == LanguageManager.LANG_ZH) "歌手" else "Artists",
                         selected = selectedTab == "artist",
-                        onClick = { selectedTab = "artist"; selectedArtist = null }
+                        onClick = { selectedTab = "artist"; selectedArtist = null; onSearchChange("") }
                     )
                 }
 
@@ -734,6 +734,7 @@ fun YMusicScreen(
                         contentDescription = if (language == LanguageManager.LANG_ZH) "当前播放" else "Queue",
                         onClick = {
                             selectedTab = if (queue.isEmpty()) "all" else "queue"
+                            onSearchChange("")
                         },
                         buttonSize = 24.dp,
                         iconSize = 16.dp,
