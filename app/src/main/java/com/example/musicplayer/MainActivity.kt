@@ -8,6 +8,8 @@ import android.content.ServiceConnection
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.ImageDecoder
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffColorFilter
 import android.graphics.drawable.AnimatedImageDrawable
 import android.graphics.drawable.AnimationDrawable
 import android.os.Build
@@ -65,9 +67,11 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
@@ -653,7 +657,7 @@ fun YMusicScreen(
                             } else {
                                 PlayingFrameAnimation(
                                     isPlaying = isPlaying,
-                                    modifier = Modifier.size(20.dp)
+                                    modifier = Modifier.size(24.dp)
                                 )
                             }
                         }
@@ -1331,11 +1335,12 @@ private fun PlayingFrameAnimation(
     isPlaying: Boolean,
     modifier: Modifier = Modifier
 ) {
+    val themeColor = MaterialTheme.colorScheme.primary
     AndroidView(
         modifier = modifier,
         factory = { context ->
             ImageView(context).apply {
-                setImageResource(R.drawable.logo_anim)
+                setImageResource(R.drawable.frame_anim_playing)
                 scaleType = ImageView.ScaleType.FIT_CENTER
             }
         },
@@ -1348,6 +1353,10 @@ private fun PlayingFrameAnimation(
             } else {
                 anim?.stop()
             }
+            imageView.colorFilter = PorterDuffColorFilter(
+                themeColor.toArgb(),
+                PorterDuff.Mode.SRC_IN
+            )
         }
     )
 }
