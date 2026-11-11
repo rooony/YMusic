@@ -7,9 +7,13 @@ import android.content.Intent
 import android.content.ServiceConnection
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.graphics.ImageDecoder
+import android.graphics.drawable.AnimatedImageDrawable
+import android.graphics.drawable.AnimationDrawable
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
+import android.widget.ImageView
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -74,6 +78,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.musicplayer.data.Song
@@ -106,6 +111,8 @@ fun YMusicScreen(
     autoPlay: Boolean,
     showAlbumArt: Boolean,
     showPath: Boolean,
+    playingAnimationMode: String,
+    showPlayingAnimation: Boolean,
     isScanning: Boolean,
     isLoading: Boolean,
     themeColor: Int,
@@ -116,6 +123,8 @@ fun YMusicScreen(
     onSetAutoPlay: (Boolean) -> Unit,
     onSetShowAlbumArt: (Boolean) -> Unit,
     onSetShowPath: (Boolean) -> Unit,
+    onSetPlayingAnimationMode: (String) -> Unit,
+    onSetShowPlayingAnimation: (Boolean) -> Unit,
     onSearchChange: (String) -> Unit,
     onScanClick: () -> Unit,
     onAddExcludedFolder: (String) -> Unit,
@@ -475,6 +484,34 @@ fun YMusicScreen(
                             )
                         }
 
+                        Text(if (language == LanguageManager.LANG_ZH) "播放动画" else "Playing animation")
+                        Button(
+                            onClick = {
+                                onSetPlayingAnimationMode(
+                                    if (playingAnimationMode == "gif") "frame" else "gif"
+                                )
+                            }
+                        ) {
+                            Text(
+                                if (playingAnimationMode == "gif") {
+                                    if (language == LanguageManager.LANG_ZH) "当前：GIF（点击切换为帧动画）" else "Current: GIF (tap for frame animation)"
+                                } else {
+                                    if (language == LanguageManager.LANG_ZH) "当前：帧动画（点击切换为GIF）" else "Current: frame animation (tap for GIF)"
+                                }
+                            )
+                        }
+
+                        Text(if (language == LanguageManager.LANG_ZH) "动画显示" else "Show animation")
+                        Button(onClick = { onSetShowPlayingAnimation(!showPlayingAnimation) }) {
+                            Text(
+                                if (showPlayingAnimation) {
+                                    if (language == LanguageManager.LANG_ZH) "隐藏动画" else "Hide animation"
+                                } else {
+                                    if (language == LanguageManager.LANG_ZH) "显示动画" else "Show animation"
+                                }
+                            )
+                        }
+
                         Text(if (language == LanguageManager.LANG_ZH) "主题色" else "Theme color")
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -587,19 +624,37 @@ fun YMusicScreen(
                         )
                         .padding(16.dp)
                 ) {
-                    Column {
-                        Text(
-                            text = currentSong?.title
-                                ?: if (language == LanguageManager.LANG_ZH) "未播放" else "Not playing",
-                            color = if (isDark) Color.White else Color.Black,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = currentSong?.artist
-                                ?: if (language == LanguageManager.LANG_ZH) "请选择一首歌" else "Select a song",
-                            color = if (isDark) Color(0xFFBDBDBD) else Color(0xFF555555),
-                            fontWeight = FontWeight.Bold
-                        )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = currentSong?.title
+                                    ?: if (language == LanguageManager.LANG_ZH) "未播放" else "Not playing",
+                                color = if (isDark) Color.White else Color.Black,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = currentSong?.artist
+                                    ?: if (language == LanguageManager.LANG_ZH) "请选择一首歌" else "Select a song",
+                                color = if (isDark) Color(0xFFBDBDBD) else Color(0xFF555555),
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        if (currentSong != null && showPlayingAnimation) {
+                            if (playingAnimationMode == "gif") {
+                                PlayingGifAnimation(
+                                    isPlaying = isPlaying,
+                                    modifier = Modifier.size(36.dp)
+                                )
+                            } else {
+                                PlayingFrameAnimation(
+                                    isPlaying = isPlaying,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
                     }
                 }
 
@@ -1262,6 +1317,64 @@ private fun ActionIconButton(
 }
 
 @Composable
+private fun PlayingFrameAnimation(
+    isPlaying: Boolean,
+    modifier: Modifier = Modifier
+) {
+    AndroidView(
+        modifier = modifier,
+        factory = { context ->
+            ImageView(context).apply {
+                setImageResource(R.drawable.logo_anim)
+                scaleType = ImageView.ScaleType.FIT_CENTER
+            }
+        },
+        update = { imageView ->
+            val anim = imageView.drawable as? AnimationDrawable
+            if (isPlaying) {
+                if (anim != null && !anim.isRunning) {
+                    anim.start()
+                }
+            } else {
+                anim?.stop()
+            }
+        }
+    )
+}
+
+@Composable
+private fun PlayingGifAnimation(
+    isPlaying: Boolean,
+    modifier: Modifier = Modifier
+) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
+        PlayingFrameAnimation(isPlaying = isPlaying, modifier = modifier)
+        return
+    }
+    AndroidView(
+        modifier = modifier,
+        factory = { context ->
+            ImageView(context).apply {
+                val source = ImageDecoder.createSource(context.assets, "icon_anim_playing.gif")
+                val drawable = ImageDecoder.decodeDrawable(source)
+                setImageDrawable(drawable)
+                scaleType = ImageView.ScaleType.FIT_CENTER
+            }
+        },
+        update = { imageView ->
+            val anim = imageView.drawable as? AnimatedImageDrawable
+            if (isPlaying) {
+                if (anim != null && !anim.isRunning) {
+                    anim.start()
+                }
+            } else {
+                anim?.stop()
+            }
+        }
+    )
+}
+
+@Composable
 private fun TabButton(
     text: String,
     selected: Boolean,
@@ -1372,6 +1485,8 @@ class MainActivity : ComponentActivity() {
             val language by viewModel.language.collectAsStateWithLifecycle()
             val showAlbumArt by viewModel.showAlbumArt.collectAsStateWithLifecycle()
             val showPath by viewModel.showPath.collectAsStateWithLifecycle()
+            val playingAnimationMode by viewModel.playingAnimationMode.collectAsStateWithLifecycle()
+            val showPlayingAnimation by viewModel.showPlayingAnimation.collectAsStateWithLifecycle()
             val isScanning by viewModel.isScanning.collectAsStateWithLifecycle()
             val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
             val isPlaying by viewModel.isPlaying.collectAsStateWithLifecycle()
@@ -1419,6 +1534,8 @@ class MainActivity : ComponentActivity() {
                         autoPlay = autoPlay,
                         showAlbumArt = showAlbumArt,
                         showPath = showPath,
+                        playingAnimationMode = playingAnimationMode,
+                        showPlayingAnimation = showPlayingAnimation,
                         isScanning = isScanning,
                         isLoading = loadingVisible,
                         themeColor = themeColor,
@@ -1432,6 +1549,8 @@ class MainActivity : ComponentActivity() {
                         onSetAutoPlay = { viewModel.setAutoPlay(it) },
                         onSetShowAlbumArt = { viewModel.setShowAlbumArt(it) },
                         onSetShowPath = { viewModel.setShowPath(it) },
+                        onSetPlayingAnimationMode = { viewModel.setPlayingAnimationMode(it) },
+                        onSetShowPlayingAnimation = { viewModel.setShowPlayingAnimation(it) },
                         onSearchChange = { viewModel.setSearchText(it) },
                         onScanClick = {
                             if (hasAudioPermission()) {

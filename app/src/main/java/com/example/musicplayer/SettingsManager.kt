@@ -29,6 +29,18 @@ class SettingsManager(context: Context) {
 
     fun getShowPath(): Boolean = prefs.getBoolean("show_path", true)
 
+    fun savePlayingAnimationMode(value: String) {
+        prefs.edit().putString("playing_animation_mode", value).apply()
+    }
+
+    fun getPlayingAnimationMode(): String = prefs.getString("playing_animation_mode", "gif") ?: "gif"
+
+    fun saveShowPlayingAnimation(value: Boolean) {
+        prefs.edit().putBoolean("show_playing_animation", value).apply()
+    }
+
+    fun getShowPlayingAnimation(): Boolean = prefs.getBoolean("show_playing_animation", true)
+
     fun saveThemeColor(color: Int) {
         prefs.edit().putInt("theme_color", color).apply()
     }
