@@ -45,6 +45,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -67,7 +68,6 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.asImageBitmap
@@ -93,7 +93,7 @@ import com.example.musicplayer.ui.MusicViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun YMusicScreen(
     songs: List<Song>,
@@ -425,7 +425,8 @@ fun YMusicScreen(
                             onValueChange = {
                                 localVolume = it
                                 onSetVolume(it)
-                            }
+                            },
+                            thumb = { SliderImageThumb() }
                         )
 
                         Text(if (language == LanguageManager.LANG_ZH) "自动播放" else "Auto play")
@@ -714,7 +715,8 @@ fun YMusicScreen(
                             onValueChange = {
                                 val target = (it * durationMs).toLong()
                                 onSeek(target)
-                            }
+                            },
+                            thumb = { SliderImageThumb() }
                         )
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -1294,6 +1296,20 @@ private fun SongAlbumArt(song: Song, size: Dp = 48.dp) {
             )
         }
     }
+}
+
+@Composable
+private fun SliderImageThumb(
+    thumbSize: Dp = 28.dp
+) {
+    Image(
+        painter = painterResource(R.drawable.icon_thumb),
+        contentDescription = null,
+        modifier = Modifier
+            .width(8.dp)
+            .height(20.dp),
+        colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.primary)
+    )
 }
 
 @Composable
