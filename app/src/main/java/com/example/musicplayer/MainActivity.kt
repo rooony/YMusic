@@ -107,6 +107,7 @@ fun YMusicScreen(
     recentSongs: List<Song>,
     searchText: String,
     excludedFolders: List<String>,
+    musicFolders: List<String>,
     isDark: Boolean,
     queue: List<Song>,
     currentPositionMs: Long,
@@ -156,14 +157,13 @@ fun YMusicScreen(
     var selectedTab by remember { mutableStateOf("all") }
     var selectedAlbum by remember { mutableStateOf<String?>(null) }
     var selectedArtist by remember { mutableStateOf<String?>(null) }
-    var folderInput by remember { mutableStateOf("") }
     var playlistNameInput by remember { mutableStateOf("") }
     var selectedPlaylistName by remember { mutableStateOf<String?>(null) }
     var showSettings by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
     var showClearFavoritesDialog by remember { mutableStateOf(false) }
-    var folderToRemove by remember { mutableStateOf<String?>(null) }
-    var excludedExpanded by remember { mutableStateOf(true) }
+    var excludedExpanded by remember { mutableStateOf(false) }
+    var musicFoldersExpanded by remember { mutableStateOf(true) }
     var localVolume by remember { mutableStateOf(volume) }
 
     val scrollState = rememberScrollState()
@@ -364,40 +364,6 @@ fun YMusicScreen(
                 )
             }
 
-            val targetFolder = folderToRemove
-            if (targetFolder != null) {
-                AlertDialog(
-                    onDismissRequest = { folderToRemove = null },
-                    title = {
-                        Text(if (language == LanguageManager.LANG_ZH) "删除已排除目录" else "Remove excluded folder")
-                    },
-                    text = {
-                        Text(
-                            if (language == LanguageManager.LANG_ZH) {
-                                "确定要删除以下已排除目录吗？\n\n$targetFolder"
-                            } else {
-                                "Remove this excluded folder?\n\n$targetFolder"
-                            }
-                        )
-                    },
-                    confirmButton = {
-                        TextButton(
-                            onClick = {
-                                onRemoveExcludedFolder(targetFolder)
-                                folderToRemove = null
-                            }
-                        ) {
-                            Text(if (language == LanguageManager.LANG_ZH) "删除" else "Remove")
-                        }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = { folderToRemove = null }) {
-                            Text(if (language == LanguageManager.LANG_ZH) "取消" else "Cancel")
-                        }
-                    }
-                )
-            }
-
             if (showClearFavoritesDialog) {
                 AlertDialog(
                     onDismissRequest = { showClearFavoritesDialog = false },
@@ -550,51 +516,29 @@ fun YMusicScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { excludedExpanded = !excludedExpanded },
+                                .clickable { musicFoldersExpanded = !musicFoldersExpanded },
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = (if (excludedExpanded) "▼ " else "▶ ") +
-                                        if (language == LanguageManager.LANG_ZH) "已排除目录" else "Excluded folders",
+                                text = (if (musicFoldersExpanded) "▼ " else "▶ ") +
+                                        if (language == LanguageManager.LANG_ZH) "音乐目录" else "Music folders",
                                 modifier = Modifier.weight(1f),
                                 fontWeight = FontWeight.Bold
                             )
                         }
 
-                        if (excludedExpanded) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                OutlinedTextField(
-                                    value = folderInput,
-                                    onValueChange = { folderInput = it },
-                                    modifier = Modifier.weight(1f),
-                                    placeholder = { Text("/storage/emulated/0/Download") }
+                        if (musicFoldersExpanded) {
+                            if (musicFolders.isEmpty()) {
+                                Text(
+                                    if (language == LanguageManager.LANG_ZH) "暂无音乐目录" else "No music folders"
                                 )
-                                Spacer(modifier = Modifier.width(3.dp))
-                                ActionIconButton(
-                                    drawableRes = R.drawable.icon_add,
-                                    contentDescription = if (language == LanguageManager.LANG_ZH) "添加" else "Add",
-                                    onClick = {
-                                        if (folderInput.isNotBlank()) {
-                                            onAddExcludedFolder(folderInput)
-                                            folderInput = ""
-                                        }
-                                    },
-                                    buttonSize = 40.dp,
-                                    iconSize = 18.dp,
-                                    iconTint = Color.White
-                                )
-                            }
-
-                            if (excludedFolders.isNotEmpty()) {
+                            } else {
                                 Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .padding(bottom = 8.dp)
                                 ) {
-                                    excludedFolders.forEachIndexed { _, folder ->
+                                    musicFolders.forEach { folder ->
                                         Row(
                                             modifier = Modifier
                                                 .fillMaxWidth()
@@ -610,7 +554,57 @@ fun YMusicScreen(
                                             ActionIconButton(
                                                 drawableRes = R.drawable.icon_remove,
                                                 contentDescription = if (language == LanguageManager.LANG_ZH) "删除" else "Remove",
-                                                onClick = { folderToRemove = folder }
+                                                onClick = { onAddExcludedFolder(folder) }
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { excludedExpanded = !excludedExpanded },
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = (if (excludedExpanded) "▼ " else "▶ ") +
+                                        if (language == LanguageManager.LANG_ZH) "已排除目录" else "Excluded folders",
+                                modifier = Modifier.weight(1f),
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        if (excludedExpanded) {
+                            if (excludedFolders.isEmpty()) {
+                                Text(
+                                    if (language == LanguageManager.LANG_ZH) "暂无已排除目录" else "No excluded folders"
+                                )
+                            } else {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(bottom = 8.dp)
+                                ) {
+                                    excludedFolders.forEach { folder ->
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(vertical = 4.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = folder,
+                                                modifier = Modifier
+                                                    .weight(1f)
+                                                    .padding(end = 8.dp)
+                                            )
+                                            ActionIconButton(
+                                                drawableRes = R.drawable.icon_add,
+                                                iconSize = 18.dp,
+                                                contentDescription = if (language == LanguageManager.LANG_ZH) "添加" else "Add",
+                                                onClick = { onRemoveExcludedFolder(folder) }
                                             )
                                         }
                                     }
@@ -1496,6 +1490,8 @@ class MainActivity : ComponentActivity() {
             val recentSongs by viewModel.recentSongs.collectAsStateWithLifecycle()
             val searchText by viewModel.searchText.collectAsStateWithLifecycle()
             val excludedFolders by viewModel.excludedFolders.collectAsStateWithLifecycle()
+            val musicFolders by viewModel.musicFolders.collectAsStateWithLifecycle()
+            val pendingServiceRestore by viewModel.pendingServiceRestore.collectAsStateWithLifecycle()
             val isDark by viewModel.isDark.collectAsStateWithLifecycle()
             val queue by viewModel.queue.collectAsStateWithLifecycle()
             val currentPositionMs by viewModel.currentPositionMs.collectAsStateWithLifecycle()
@@ -1524,6 +1520,15 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
+            // Push the restored queue + current song into the playback service
+            // without starting playback, so the play button can resume it.
+            LaunchedEffect(pendingServiceRestore) {
+                val restore = pendingServiceRestore ?: return@LaunchedEffect
+                withService { service ->
+                    service.restoreQueuePaused(restore.queue, restore.songId, restore.positionMs)
+                }
+            }
+
             val colorScheme = if (isDark) {
                 darkColorScheme(primary = Color(themeColor))
             } else {
@@ -1547,6 +1552,7 @@ class MainActivity : ComponentActivity() {
                         recentSongs = recentSongs,
                         searchText = searchText,
                         excludedFolders = excludedFolders,
+                        musicFolders = musicFolders,
                         isDark = isDark,
                         queue = queue,
                         currentPositionMs = currentPositionMs,
@@ -1589,10 +1595,21 @@ class MainActivity : ComponentActivity() {
                         onClearFavorites = { viewModel.clearFavorites() },
                         onAddToPlaylist = { name, song -> viewModel.addSongToPlaylist(name, song) },
                         onPlayPauseClick = {
-                            if (currentSong == null && songs.isNotEmpty()) {
-                                playSong(songs.random(), songs)
+                            val song = currentSong
+                            if (song == null) {
+                                if (songs.isNotEmpty()) {
+                                    playSong(songs.random(), songs)
+                                }
                             } else {
                                 withService { service ->
+                                    if (service.getQueue().isEmpty()) {
+                                        val targetQueue = queue.ifEmpty { listOf(song) }
+                                        service.restoreQueuePaused(
+                                            targetQueue,
+                                            song.id,
+                                            viewModel.restorePlaybackState().second
+                                        )
+                                    }
                                     service.togglePlayPause()
                                     viewModel.setIsPlaying(service.isPlaying())
                                 }

@@ -20,8 +20,31 @@ class SongRepository(
      * it in memory for the current session only.
      */
     suspend fun scanSongs(): List<Song> = withContext(Dispatchers.IO) {
-        val excludedFolders = getExcludedFolders()
-        readLocalSongs(excludedFolders)
+        // Read the whole library once, unfiltered, so we can tell which folders
+        // actually contain music.
+        val allSongs = readLocalSongs(emptyList())
+
+        // Drop excluded folders that no longer contain any music.
+        val existing = getExcludedFolders()
+        val keptExcluded = existing.filter { folder ->
+            allSongs.any { song -> isInExcludedFolder(song.path, listOf(folder)) }
+        }.toMutableList()
+        for (folder in existing) {
+            if (folder !in keptExcluded) {
+                excludedFolderDao.removeFolder(normalizePath(folder))
+            }
+        }
+
+        // Default folders are only excluded when they actually contain music.
+        for (dir in getDefaultExcludedFolders()) {
+            val alreadyExcluded = keptExcluded.any { normalizePath(it) == normalizePath(dir) }
+            if (!alreadyExcluded && allSongs.any { song -> isInExcludedFolder(song.path, listOf(dir)) }) {
+                excludedFolderDao.addFolder(ExcludedFolder(normalizePath(dir)))
+                keptExcluded.add(dir)
+            }
+        }
+
+        allSongs.filter { song -> !isInExcludedFolder(song.path, keptExcluded) }
     }
 
     suspend fun addExcludedFolder(path: String) {
@@ -45,16 +68,6 @@ class SongRepository(
             "$root/Android",
             "$root/Download"
         )
-    }
-
-    suspend fun addDefaultExcludedFoldersIfMissing() {
-        val defaults = getDefaultExcludedFolders()
-        val existing = getExcludedFolders().toSet()
-        for (dir in defaults) {
-            if (dir !in existing) {
-                excludedFolderDao.addFolder(ExcludedFolder(dir))
-            }
-        }
     }
 
     suspend fun toggleFavorite(songId: Long) {

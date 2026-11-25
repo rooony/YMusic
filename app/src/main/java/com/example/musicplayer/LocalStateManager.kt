@@ -17,6 +17,15 @@ class LocalStateManager(context: Context) {
 
     fun getLastPosition(): Long = prefs.getLong("last_position_ms", 0L)
 
+    fun saveQueue(songIds: List<Long>) {
+        prefs.edit().putString("queue_song_ids", songIds.joinToString(",")).apply()
+    }
+
+    fun getQueueSongIds(): List<Long> {
+        val raw = prefs.getString("queue_song_ids", null) ?: return emptyList()
+        return raw.split(',').mapNotNull { it.toLongOrNull() }
+    }
+
     fun savePlayMode(mode: PlayMode) {
         prefs.edit().putString("play_mode", mode.name).apply()
     }

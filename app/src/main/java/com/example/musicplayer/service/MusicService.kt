@@ -158,6 +158,7 @@ class MusicService : Service() {
             localStateManager.saveLastSongId(song.id)
             localStateManager.saveLastPosition(player.currentPosition)
         }
+        localStateManager.saveQueue(queue.map { it.id })
         mediaSession?.release()
         abandonAudioFocus()
         audioManager.unregisterAudioDeviceCallback(audioDeviceCallback)
@@ -221,11 +222,35 @@ class MusicService : Service() {
             playAt(currentIndex)
         } else {
             currentIndex = -1
+            localStateManager.saveQueue(emptyList())
             player.stop()
         }
     }
 
     fun getQueue(): List<Song> = queue.toList()
+
+    /**
+     * Loads a saved queue and current song into the player without starting
+     * playback, so the user can resume it with the play button.
+     */
+    fun restoreQueuePaused(songs: List<Song>, songId: Long, positionMs: Long = 0L) {
+        if (songs.isEmpty()) return
+        queue.clear()
+        queue.addAll(songs)
+        val index = songs.indexOfFirst { it.id == songId }
+        currentIndex = if (index >= 0) index else 0
+        val song = queue[currentIndex]
+        val item = MediaItem.Builder()
+            .setMediaId(song.id.toString())
+            .setUri(song.uri)
+            .build()
+        player.setMediaItem(item)
+        player.prepare()
+        if (positionMs > 0L) player.seekTo(positionMs)
+        mediaSession?.setMetadata(buildMediaMetadata(song))
+        updatePlaybackState()
+        updateNotification()
+    }
 
     fun restoreFromSavedState(songId: Long, songs: List<Song>, positionMs: Long = 0L) {
         if (songs.isEmpty()) return
@@ -247,6 +272,8 @@ class MusicService : Service() {
         if (queue.isNotEmpty() && index in queue.indices) {
             currentIndex = index
             val song = queue[index]
+            localStateManager.saveLastSongId(song.id)
+            localStateManager.saveQueue(queue.map { it.id })
             val item = MediaItem.Builder()
                 .setMediaId(song.id.toString())
                 .setUri(song.uri)

@@ -32,6 +32,12 @@ import java.util.Locale
 
 private const val MIN_LOADING_MS = 400L
 
+data class PendingServiceRestore(
+    val queue: List<Song>,
+    val songId: Long,
+    val positionMs: Long
+)
+
 class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     private val prefs = application.getSharedPreferences("ymusic_pref", Context.MODE_PRIVATE)
@@ -71,6 +77,12 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _excludedFolders = MutableStateFlow<List<String>>(emptyList())
     val excludedFolders: StateFlow<List<String>> = _excludedFolders.asStateFlow()
+
+    private val _musicFolders = MutableStateFlow<List<String>>(emptyList())
+    val musicFolders: StateFlow<List<String>> = _musicFolders.asStateFlow()
+
+    private val _pendingServiceRestore = MutableStateFlow<PendingServiceRestore?>(null)
+    val pendingServiceRestore: StateFlow<PendingServiceRestore?> = _pendingServiceRestore.asStateFlow()
 
     private val _isDark = MutableStateFlow(settingsManager.getDarkMode())
     val isDark: StateFlow<Boolean> = _isDark.asStateFlow()
@@ -169,7 +181,6 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         viewModelScope.launch {
-            repository.addDefaultExcludedFoldersIfMissing()
             refreshExcludedFolders()
         }
     }
@@ -240,6 +251,23 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         return Pair(songId, position)
     }
 
+    private fun restoreSavedPlayback() {
+        val ids = localStateManager.getQueueSongIds()
+        if (ids.isEmpty()) return
+        val map = _songs.value.associateBy { it.id }
+        val restored = ids.mapNotNull { map[it] }
+        if (restored.isEmpty()) return
+        _queue.value = restored
+        val lastId = localStateManager.getLastSongId()
+        val current = restored.firstOrNull { it.id == lastId } ?: restored.first()
+        _currentSong.value = current
+        _pendingServiceRestore.value = PendingServiceRestore(
+            queue = restored,
+            songId = current.id,
+            positionMs = localStateManager.getLastPosition()
+        )
+    }
+
     fun createPlaylist(name: String, songs: List<Song>) {
         val newList = _playlists.value.toMutableList()
         newList.add(Playlist(name, songs.map { it.id }))
@@ -291,7 +319,10 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
      * kept in memory for the session.
      */
     fun initialize() {
-        viewModelScope.launch { performScan() }
+        viewModelScope.launch {
+            performScan()
+            restoreSavedPlayback()
+        }
     }
 
     /** User-initiated scan: rescans the disk and replaces the in-memory list. */
@@ -310,7 +341,6 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             val startedAt = SystemClock.elapsedRealtime()
             // Scanning runs on Dispatchers.IO inside the repository. The result
             // is not persisted anywhere; it lives in memory for this session.
-            repository.addDefaultExcludedFoldersIfMissing()
             val songs = repository.scanSongs()
             _songs.value = songs
             updateDerived(songs)
@@ -422,7 +452,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     fun getAlbumArtManager(): AlbumArtManager = albumArtManager
 
     private suspend fun updateDerived(list: List<Song>) {
-        val (albums, artists) = withContext(Dispatchers.Default) {
+        val (albums, artists, musicFolders) = withContext(Dispatchers.Default) {
             val collator = Collator.getInstance(Locale.CHINA)
             val albumMap = list.groupBy { it.album }
             val albums = albumMap.map { (albumName, songsInAlbum) ->
@@ -439,9 +469,14 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                     count = artistSongs.size
                 )
             }.sortedWith { a, b -> collator.compare(a.name, b.name) }
-            albums to artists
+            val folders = list
+                .mapNotNull { song -> song.path.substringBeforeLast('/', "").takeIf { it.isNotBlank() } }
+                .distinct()
+                .sortedWith { a, b -> collator.compare(a, b) }
+            Triple(albums, artists, folders)
         }
         _albums.value = albums
         _artists.value = artists
+        _musicFolders.value = musicFolders
     }
 }
