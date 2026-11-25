@@ -413,6 +413,11 @@ fun YMusicScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 8.dp)
+                            .background(
+                                color = if (isDark) Color(0xFF1F1F1F) else Color(0xFFF0F0F0),
+                                shape = RoundedCornerShape(16.dp)
+                            )
+                            .padding(16.dp)
                     ) {
                         Text(if (language == LanguageManager.LANG_ZH) "音量" else "Volume")
                         Slider(
