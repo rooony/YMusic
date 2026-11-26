@@ -1729,6 +1729,10 @@ class MainActivity : ComponentActivity() {
         val index = list.indexOfFirst { it.id == song.id }
         if (index < 0) return
 
+        // If this very song is already playing, do nothing instead of restarting
+        // playback from the beginning (no matter which list it was clicked in).
+        if (viewModel.isPlaying.value && viewModel.currentSong.value?.id == song.id) return
+
         viewModel.setQueue(list)
         viewModel.setCurrentSong(song)
         viewModel.markRecentPlay(song)
